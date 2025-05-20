@@ -19,9 +19,10 @@ const TabNavigator = () => {
         tabBarInactiveTintColor: "#888",
         tabBarStyle: {
           paddingBottom: 15,
+          height: 60,
           // paddingTop: 5,
         },
-        tabBarShowLabel: false,
+        // tabBarShowLabel: false,
         tabBarItemStyle: {
           backgroundColor: "transparent",
         },
@@ -52,6 +53,7 @@ const TabNavigator = () => {
               <Ionicons name="add" size={32} color="#FFFFFF" />
             </View>
           ),
+          title: "",
         }}
       />
       <Tab.Screen
