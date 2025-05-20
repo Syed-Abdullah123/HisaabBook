@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +15,22 @@ import { Ionicons } from "@expo/vector-icons";
 const BusinessNameScreen = () => {
   const [name, setName] = useState("");
   const navigation = useNavigation();
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+
+  const handleFinish = () => {
+    setShowPermissionModal(true);
+  };
+
+  const handlePermissionGranted = () => {
+    setShowPermissionModal(false);
+    // TODO: Implement contacts permission request
+    navigation.navigate("Tab");
+  };
+
+  const handlePermissionDenied = () => {
+    setShowPermissionModal(false);
+    navigation.navigate("Tab");
+  };
 
   return (
     <KeyboardAvoidingView
@@ -38,12 +55,41 @@ const BusinessNameScreen = () => {
       <TouchableOpacity
         style={[styles.button, !name && styles.buttonDisabled]}
         disabled={!name}
-        onPress={() => {
-          navigation.navigate("Tab");
-        }}
+        onPress={handleFinish}
       >
         <Text style={styles.buttonText}>Finish</Text>
       </TouchableOpacity>
+
+      <Modal
+        visible={showPermissionModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPermissionModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Contacts Access</Text>
+            <Text style={styles.modalText}>
+              To help you manage your business contacts, we need access to your
+              phone contacts.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.denyButton]}
+                onPress={handlePermissionDenied}
+              >
+                <Text style={styles.denyButtonText}>Not Now</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.allowButton]}
+                onPress={handlePermissionGranted}
+              >
+                <Text style={styles.allowButtonText}>Allow Access</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -102,6 +148,57 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#fff",
     fontWeight: "bold",
+    fontSize: 15,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: Platform.OS === "ios" ? 40 : 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 16,
+    color: "#222",
+  },
+  modalText: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  denyButton: {
+    backgroundColor: "#F5F6FA",
+  },
+  allowButton: {
+    backgroundColor: "#2F51FF",
+  },
+  denyButtonText: {
+    color: "#666",
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  allowButtonText: {
+    color: "#fff",
+    fontWeight: "600",
     fontSize: 15,
   },
 });
