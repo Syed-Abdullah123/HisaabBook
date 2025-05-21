@@ -9,12 +9,18 @@ import ContactDetailsScreen from "../screens/ContactDetailsScreen";
 import EntryFormScreen from "../screens/EntryFormScreen";
 import ContactHistoryScreen from "../screens/ContactHistoryScreen";
 import AddNewContactScreen from "../screens/AddNewContactScreen";
+import SplashScreen from "../screens/SplashScreen";
+
 const Stack = createNativeStackNavigator();
 
 const MainNavigator = () => {
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator
+        screenOptions={{ headerShown: false }}
+        initialRouteName="Splash"
+      >
+        <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Create" component={CreateAccountScreen} />
         <Stack.Screen name="Otp" component={OtpScreen} />
