@@ -7,22 +7,43 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  NativeSyntheticEvent,
+  TextInputKeyPressEventData,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
+import { auth } from "../../firebaseConfig";
+import { FirebaseAuthTypes } from "@react-native-firebase/auth";
 
-const OTP_LENGTH = 4;
+const OTP_LENGTH = 6;
 const RESEND_SECONDS = 25;
 
+type RootStackParamList = {
+  Otp: {
+    phone: string;
+    confirmation: FirebaseAuthTypes.ConfirmationResult;
+  };
+  BuisnessName: undefined;
+};
+
+type OtpScreenRouteProp = RouteProp<RootStackParamList, "Otp">;
+type OtpScreenNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  "Otp"
+>;
+
 const OtpScreen = () => {
-  const navigation = useNavigation();
-  const route = useRoute();
-  const phone = route.params?.phone || "";
+  const navigation = useNavigation<OtpScreenNavigationProp>();
+  const route = useRoute<OtpScreenRouteProp>();
+  const phone = route.params.phone;
+  const confirmation = route.params.confirmation;
 
-  const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(""));
+  const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [timer, setTimer] = useState(RESEND_SECONDS);
-
-  const inputs = useRef([]);
+  const [loading, setLoading] = useState(false);
+  const inputs = useRef<Array<TextInput | null>>([]);
 
   useEffect(() => {
     if (timer === 0) return;
@@ -30,7 +51,7 @@ const OtpScreen = () => {
     return () => clearInterval(interval);
   }, [timer]);
 
-  const handleChange = (text, idx) => {
+  const handleChange = (text: string, idx: number) => {
     if (!/^[0-9]?$/.test(text)) return;
     const newOtp = [...otp];
     newOtp[idx] = text;
@@ -44,13 +65,31 @@ const OtpScreen = () => {
     }
   };
 
-  const handleKeyPress = (e, idx) => {
+  const handleKeyPress = (
+    e: NativeSyntheticEvent<TextInputKeyPressEventData>,
+    idx: number
+  ) => {
     if (e.nativeEvent.key === "Backspace" && !otp[idx] && idx > 0) {
       inputs.current[idx - 1]?.focus();
     }
   };
 
   const isOtpComplete = otp.every((d) => d.length === 1);
+
+  const handleVerify = async () => {
+    if (!isOtpComplete) return;
+    setLoading(true);
+    try {
+      const code = otp.join("");
+      await confirmation.confirm(code);
+      setLoading(false);
+      // Navigate to your next screen (e.g., BuisnessName)
+      navigation.navigate("BuisnessName");
+    } catch (error: any) {
+      setLoading(false);
+      Alert.alert("Error", error.message);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -65,17 +104,22 @@ const OtpScreen = () => {
       </TouchableOpacity>
       <Text style={styles.title}>4-digit SMS Code Darj Karain!</Text>
       <Text style={styles.subtitle}>
-        {phone} pay 4-digit code SMS kia gya ha.
+        {phone} pay 6-digit code SMS kia gya ha.
       </Text>
       <View style={styles.otpRow}>
-        {otp.map((digit, idx) => (
+        {Array.from({ length: OTP_LENGTH }).map((_, idx) => (
           <TextInput
             key={idx}
-            ref={(ref) => (inputs.current[idx] = ref)}
-            style={[styles.otpInput, digit ? styles.otpInputActive : undefined]}
+            ref={(ref) => {
+              inputs.current[idx] = ref;
+            }}
+            style={[
+              styles.otpInput,
+              otp[idx] ? styles.otpInputActive : undefined,
+            ]}
             keyboardType="number-pad"
             maxLength={1}
-            value={digit}
+            value={otp[idx] || ""}
             onChangeText={(text) => handleChange(text, idx)}
             onKeyPress={(e) => handleKeyPress(e, idx)}
             autoFocus={idx === 0}
@@ -89,10 +133,12 @@ const OtpScreen = () => {
       </Text>
       <TouchableOpacity
         style={[styles.button, !isOtpComplete && styles.buttonDisabled]}
-        disabled={!isOtpComplete}
-        onPress={() => navigation.navigate("BuisnessName")}
+        disabled={!isOtpComplete || loading}
+        onPress={handleVerify}
       >
-        <Text style={styles.buttonText}>Finish</Text>
+        <Text style={styles.buttonText}>
+          {loading ? "Verifying..." : "Finish"}
+        </Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );
@@ -127,18 +173,23 @@ const styles = StyleSheet.create({
   },
   otpRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
+    paddingHorizontal: 24, // Add horizontal padding
+    gap: 10, // Or use marginHorizontal in otpInput if gap is not supported
   },
   otpInput: {
-    width: 60,
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
+    width: 44,
+    height: 54,
+    borderRadius: 10,
+    borderWidth: 1.5,
     borderColor: "#E0E0E0",
     backgroundColor: "#F5F6FA",
     fontSize: 22,
     color: "#222",
+    textAlign: "center",
+    marginHorizontal: 5, // For spacing if gap is not supported
   },
   otpInputActive: {
     borderColor: "#2F51FF",
