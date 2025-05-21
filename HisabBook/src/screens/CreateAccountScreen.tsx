@@ -5,12 +5,13 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  Image,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { auth } from "../../firebaseConfig";
 
 interface CreateAccountScreenProps {
   navigation: NativeStackNavigationProp<any>;
@@ -26,7 +27,31 @@ const isValidPhone = (phone: string) => {
 const CreateAccountScreen = () => {
   const [phone, setPhone] = useState("");
   const [isInputActive, setIsInputActive] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigation = useNavigation<CreateAccountScreenProps["navigation"]>();
+
+  const handleSendCode = async () => {
+    if (!isValidPhone(phone)) {
+      Alert.alert(
+        "Invalid",
+        "Please enter a valid 11-digit phone number starting with 03."
+      );
+      return;
+    }
+    setLoading(true);
+    try {
+      const phoneNumber = "+92" + phone.slice(1); // Convert 03xx... to +923xx...
+      const confirmation = await auth().signInWithPhoneNumber(phoneNumber);
+      setLoading(false);
+      navigation.navigate("Otp", {
+        phone: phoneNumber,
+        confirmation: confirmation,
+      });
+    } catch (error: any) {
+      setLoading(false);
+      Alert.alert("Error", error.message);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -37,7 +62,7 @@ const CreateAccountScreen = () => {
       <View style={styles.content}>
         <Text style={styles.title}>Apna Mobile Number Darj Karain!</Text>
         <Text style={styles.subtitle}>
-          Aap ko 4-digit ka code SMS par bheja jayega.
+          Aap ko 6-digit ka code SMS par bheja jayega.
         </Text>
         <View
           style={[
@@ -63,10 +88,12 @@ const CreateAccountScreen = () => {
         </View>
         <TouchableOpacity
           style={[styles.button, !isValidPhone(phone) && styles.buttonDisabled]}
-          disabled={!isValidPhone(phone)}
-          onPress={() => navigation.navigate("Otp")}
+          disabled={!isValidPhone(phone) || loading}
+          onPress={handleSendCode}
         >
-          <Text style={styles.buttonText}>Mobile Number Verify Karain</Text>
+          <Text style={styles.buttonText}>
+            {loading ? "Sending..." : "Mobile Number Verify Karain"}
+          </Text>
         </TouchableOpacity>
       </View>
       <View style={{ flex: 2 }} />
