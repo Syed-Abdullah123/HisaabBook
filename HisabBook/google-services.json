@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "553634274498",
+    "project_id": "hisaabbook-d54b7",
+    "storage_bucket": "hisaabbook-d54b7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:553634274498:android:a4ec07cbc181febe526f5b",
+        "android_client_info": {
+          "package_name": "com.abc_123_a.HisabBook"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHsu1ltJAMTZQ0DfFRj6D-dpVnzb0X-1g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
