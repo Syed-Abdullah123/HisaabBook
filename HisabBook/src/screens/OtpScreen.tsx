@@ -15,6 +15,7 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { auth } from "../../firebaseConfig";
+import { onAuthStateChanged } from "@react-native-firebase/auth";
 import { FirebaseAuthTypes } from "@react-native-firebase/auth";
 
 const OTP_LENGTH = 6;
@@ -35,21 +36,30 @@ type OtpScreenNavigationProp = NativeStackNavigationProp<
 >;
 
 const OtpScreen = () => {
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [loading, setLoading] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(30);
+  const [resendDisabled, setResendDisabled] = useState(true);
+  const inputRefs = useRef<Array<TextInput | null>>([]);
   const navigation = useNavigation<OtpScreenNavigationProp>();
   const route = useRoute<OtpScreenRouteProp>();
-  const phone = route.params.phone;
-  const confirmation = route.params.confirmation;
-
-  const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
-  const [timer, setTimer] = useState(RESEND_SECONDS);
-  const [loading, setLoading] = useState(false);
-  const inputs = useRef<Array<TextInput | null>>([]);
+  const { phone, confirmation } = route.params;
 
   useEffect(() => {
-    if (timer === 0) return;
-    const interval = setInterval(() => setTimer((t) => t - 1), 1000);
+    const subscriber = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // User is signed in, navigate to main app
+        navigation.navigate("BuisnessName");
+      }
+    });
+    return subscriber; // unsubscribe on unmount
+  }, [navigation]);
+
+  useEffect(() => {
+    if (timeLeft === 0) return;
+    const interval = setInterval(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearInterval(interval);
-  }, [timer]);
+  }, [timeLeft]);
 
   const handleChange = (text: string, idx: number) => {
     if (!/^[0-9]?$/.test(text)) return;
@@ -58,10 +68,10 @@ const OtpScreen = () => {
     setOtp(newOtp);
 
     if (text && idx < OTP_LENGTH - 1) {
-      inputs.current[idx + 1]?.focus();
+      inputRefs.current[idx + 1]?.focus();
     }
     if (!text && idx > 0) {
-      inputs.current[idx - 1]?.focus();
+      inputRefs.current[idx - 1]?.focus();
     }
   };
 
@@ -70,21 +80,24 @@ const OtpScreen = () => {
     idx: number
   ) => {
     if (e.nativeEvent.key === "Backspace" && !otp[idx] && idx > 0) {
-      inputs.current[idx - 1]?.focus();
+      inputRefs.current[idx - 1]?.focus();
     }
   };
 
   const isOtpComplete = otp.every((d) => d.length === 1);
 
   const handleVerify = async () => {
-    if (!isOtpComplete) return;
+    const otpString = otp.join("");
+    if (otpString.length !== 6) {
+      Alert.alert("Error", "Please enter the complete verification code");
+      return;
+    }
+
     setLoading(true);
     try {
-      const code = otp.join("");
-      await confirmation.confirm(code);
+      await confirmation.confirm(otpString);
       setLoading(false);
-      // Navigate to your next screen (e.g., BuisnessName)
-      navigation.navigate("BuisnessName");
+      // Navigation will be handled by the auth state listener
     } catch (error: any) {
       setLoading(false);
       Alert.alert("Error", error.message);
@@ -111,7 +124,7 @@ const OtpScreen = () => {
           <TextInput
             key={idx}
             ref={(ref) => {
-              inputs.current[idx] = ref;
+              inputRefs.current[idx] = ref;
             }}
             style={[
               styles.otpInput,
@@ -128,8 +141,8 @@ const OtpScreen = () => {
         ))}
       </View>
       <Text style={styles.resendText}>
-        <Text style={{ color: "#2F51FF" }}>{timer} second</Text> mai code dobra
-        bheja jaega
+        <Text style={{ color: "#2F51FF" }}>{timeLeft} second</Text> mai code
+        dobra bheja jaega
       </Text>
       <TouchableOpacity
         style={[styles.button, !isOtpComplete && styles.buttonDisabled]}
