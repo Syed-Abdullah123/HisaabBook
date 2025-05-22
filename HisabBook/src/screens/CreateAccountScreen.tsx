@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,12 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Ionicons } from "@expo/vector-icons";
 import { auth } from "../../firebaseConfig";
+import {
+  signInWithPhoneNumber,
+  onAuthStateChanged,
+} from "@react-native-firebase/auth";
 
 interface CreateAccountScreenProps {
   navigation: NativeStackNavigationProp<any>;
@@ -30,6 +35,16 @@ const CreateAccountScreen = () => {
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation<CreateAccountScreenProps["navigation"]>();
 
+  useEffect(() => {
+    const subscriber = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // User is signed in, navigate to main app
+        navigation.navigate("BuisnessName");
+      }
+    });
+    return subscriber; // unsubscribe on unmount
+  }, [navigation]);
+
   const handleSendCode = async () => {
     if (!isValidPhone(phone)) {
       Alert.alert(
@@ -41,7 +56,7 @@ const CreateAccountScreen = () => {
     setLoading(true);
     try {
       const phoneNumber = "+92" + phone.slice(1); // Convert 03xx... to +923xx...
-      const confirmation = await auth().signInWithPhoneNumber(phoneNumber);
+      const confirmation = await signInWithPhoneNumber(auth, phoneNumber);
       setLoading(false);
       navigation.navigate("Otp", {
         phone: phoneNumber,
