@@ -38,6 +38,3 @@ yarn-error.*
 
 # firebase
 firebaseConfig.ts
-
-# google-services.json
-google-services.json
