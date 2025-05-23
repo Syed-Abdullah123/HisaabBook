@@ -17,6 +17,7 @@ import {
   signInWithPhoneNumber,
   onAuthStateChanged,
 } from "@react-native-firebase/auth";
+import { setConfirmationResult } from "../utils/authState";
 
 interface CreateAccountScreenProps {
   navigation: NativeStackNavigationProp<any>;
@@ -57,10 +58,10 @@ const CreateAccountScreen = () => {
     try {
       const phoneNumber = "+92" + phone.slice(1); // Convert 03xx... to +923xx...
       const confirmation = await signInWithPhoneNumber(auth, phoneNumber);
+      setConfirmationResult(confirmation); // Store confirmation in our state
       setLoading(false);
       navigation.navigate("Otp", {
         phone: phoneNumber,
-        confirmation: confirmation,
       });
     } catch (error: any) {
       setLoading(false);
