@@ -16,7 +16,10 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { auth } from "../../firebaseConfig";
 import { onAuthStateChanged } from "@react-native-firebase/auth";
-import { FirebaseAuthTypes } from "@react-native-firebase/auth";
+import {
+  getConfirmationResult,
+  clearConfirmationResult,
+} from "../utils/authState";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 25;
@@ -24,7 +27,6 @@ const RESEND_SECONDS = 25;
 type RootStackParamList = {
   Otp: {
     phone: string;
-    confirmation: FirebaseAuthTypes.ConfirmationResult;
   };
   BuisnessName: undefined;
 };
@@ -43,7 +45,7 @@ const OtpScreen = () => {
   const inputRefs = useRef<Array<TextInput | null>>([]);
   const navigation = useNavigation<OtpScreenNavigationProp>();
   const route = useRoute<OtpScreenRouteProp>();
-  const { phone, confirmation } = route.params;
+  const { phone } = route.params;
 
   useEffect(() => {
     const subscriber = onAuthStateChanged(auth, (user) => {
@@ -95,7 +97,12 @@ const OtpScreen = () => {
 
     setLoading(true);
     try {
+      const confirmation = getConfirmationResult();
+      if (!confirmation) {
+        throw new Error("Verification session expired. Please try again.");
+      }
       await confirmation.confirm(otpString);
+      clearConfirmationResult(); // Clear the confirmation after successful verification
       setLoading(false);
       // Navigation will be handled by the auth state listener
     } catch (error: any) {
@@ -115,7 +122,7 @@ const OtpScreen = () => {
       >
         <Ionicons name="chevron-back" size={24} color="black" />
       </TouchableOpacity>
-      <Text style={styles.title}>4-digit SMS Code Darj Karain!</Text>
+      <Text style={styles.title}>6-digit SMS Code Darj Karain!</Text>
       <Text style={styles.subtitle}>
         {phone} pay 6-digit code SMS kia gya ha.
       </Text>
@@ -189,8 +196,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 24,
-    paddingHorizontal: 24, // Add horizontal padding
-    gap: 10, // Or use marginHorizontal in otpInput if gap is not supported
+    paddingHorizontal: 24,
   },
   otpInput: {
     width: 44,
