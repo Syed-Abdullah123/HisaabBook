@@ -3,14 +3,12 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import HomeScreen from "../screens/HomeScreen";
 import AddContact from "../screens/AddContactScreen";
 import ProfileScreen from "../screens/ProfileScreen";
-import { useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { View, StyleSheet, Pressable } from "react-native";
 
 const Tab = createBottomTabNavigator();
 
 const TabNavigator = () => {
-  const route = useRoute();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -20,9 +18,7 @@ const TabNavigator = () => {
         tabBarStyle: {
           paddingBottom: 15,
           height: 60,
-          // paddingTop: 5,
         },
-        // tabBarShowLabel: false,
         tabBarItemStyle: {
           backgroundColor: "transparent",
         },
