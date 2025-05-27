@@ -1,19 +1,159 @@
+// import React, { useState } from "react";
+// import {
+//   View,
+//   Text,
+//   StyleSheet,
+//   TextInput,
+//   TouchableOpacity,
+//   SafeAreaView,
+//   Platform,
+//   KeyboardAvoidingView,
+//   Image,
+//   Modal,
+// } from "react-native";
+// import { Ionicons, Feather } from "@expo/vector-icons";
+// import { useNavigation, useRoute } from "@react-navigation/native";
+// import ContactHeader from "../components/ContactHeader";
+
+// import DateTimePicker from "@react-native-community/datetimepicker";
+// import * as ImagePicker from "expo-image-picker"
+
+// const EntryFormScreen = () => {
+//   const navigation = useNavigation();
+//   const route = useRoute();
+//   const contact = route.params?.contact || { name: "Junaid" };
+//   const type = route.params?.type || "diye";
+
+//   const [amount, setAmount] = useState("");
+//   const [note, setNote] = useState("");
+//   const [date, setDate] = useState(new Date());
+//   // Dummy: no real audio or bill logic
+//   const [showDatePicker, setShowDatePicker] = useState(false);
+//   const [selectedDate, setSelectedDate] = useState(new Date());
+
+//   return (
+//     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+//       <KeyboardAvoidingView
+//         style={{ flex: 1 }}
+//         behavior={Platform.OS === "ios" ? "padding" : undefined}
+//       >
+//         <ContactHeader
+//           name={contact.name}
+//           number={contact.number}
+//           onBackPress={() => navigation.goBack()}
+//           onMenuPress={() => {}}
+//         />
+//         <View style={styles.formContainer}>
+//           <TextInput
+//             style={styles.input}
+//             placeholder="Rs. 3500"
+//             value={amount}
+//             onChangeText={setAmount}
+//             keyboardType="numeric"
+//             placeholderTextColor="#B0B0B0"
+//           />
+//           <View style={{ height: 16 }} />
+//           <View style={styles.noteRow}>
+//             <TextInput
+//               style={[styles.input, { flex: 1 }]}
+//               placeholder="Feb ki kameti"
+//               value={note}
+//               onChangeText={setNote}
+//               placeholderTextColor="#B0B0B0"
+//             />
+//             <TouchableOpacity style={styles.micBtn}>
+//               <Feather name="mic" size={20} color="#2F51FF" />
+//             </TouchableOpacity>
+//           </View>
+//           <View style={styles.audioRow}>
+//             <View style={{ flexDirection: "row", alignItems: "center" }}>
+//               <Ionicons name="play" size={20} color="#2F51FF" />
+//               <Text style={{ marginHorizontal: 8, color: "#222" }}>0.11</Text>
+//             </View>
+//             <TouchableOpacity>
+//               <Feather name="trash-2" size={18} color="#F00000" />
+//             </TouchableOpacity>
+//           </View>
+//           <View style={styles.optionsRow}>
+//             <TouchableOpacity
+//               style={styles.optionBtn}
+//               onPress={() => setShowDatePicker(true)}
+//             >
+//               <Ionicons
+//                 name="calendar-outline"
+//                 size={18}
+//                 color="#2F51FF"
+//                 style={{ marginRight: 6 }}
+//               />
+//               <Text style={styles.optionBtnText}>{date}</Text>
+//             </TouchableOpacity>
+
+//             {showDatePicker && (
+//               <DateTimePicker
+//                 value={selectedDate}
+//                 mode="date"
+//                 display="default"
+//                 onChange={(event, selected) => {
+//                   setShowDatePicker(false);
+//                   if (selected) {
+//                     setSelectedDate(selected);
+//                     const formatted = selected.toLocaleDateString("en-GB", {
+//                       day: "numeric",
+//                       month: "short",
+//                       year: "numeric",
+//                     });
+//                     setDate(formatted); // E.g., 27 May, 2025
+//                   }
+//                 }}
+//               />
+//             )}
+//             <TouchableOpacity style={styles.optionBtn}>
+//               <Ionicons
+//                 name="camera-outline"
+//                 size={18}
+//                 color="#2F51FF"
+//                 style={{ marginRight: 6 }}
+//               />
+//               <Text style={styles.optionBtnText}>Add bills</Text>
+//             </TouchableOpacity>
+//           </View>
+//           <View style={styles.billPreviewRow}>
+//             <Image
+//               source={require("../../assets/home-empty.png")}
+//               style={styles.billPreview}
+//               resizeMode="contain"
+//             />
+//           </View>
+//         </View>
+//         <TouchableOpacity
+//           style={styles.saveBtn}
+//           onPress={() => navigation.navigate("ContactHistory", { contact })}
+//         >
+//           <Text style={styles.saveBtnText}>Save</Text>
+//         </TouchableOpacity>
+//       </KeyboardAvoidingView>
+//     </SafeAreaView>
+//   );
+// };
+
 import React, { useState } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
-  Platform,
-  KeyboardAvoidingView,
   Image,
+  SafeAreaView,
+  StyleSheet,
+  Platform,
   Modal,
+  KeyboardAvoidingView,
 } from "react-native";
-import { Ionicons, Feather } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import ContactHeader from "../components/ContactHeader";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import * as ImagePicker from "expo-image-picker";
+import { Ionicons, Feather } from "@expo/vector-icons";
+import ContactHeader from "../components/ContactHeader"; // Reuse your header
 
 const EntryFormScreen = () => {
   const navigation = useNavigation();
@@ -23,9 +163,40 @@ const EntryFormScreen = () => {
 
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [date, setDate] = useState("12th Feb,2025");
+  const [date, setDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [imageUri, setImageUri] = useState<string | null>(null);
   const [showCallModal, setShowCallModal] = useState(false);
-  // Dummy: no real audio or bill logic
+
+  const formattedDate = date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+  const handlePickImage = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      alert("Camera permission is required.");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets?.length > 0) {
+      setImageUri(result.assets[0].uri);
+    }
+  };
+
+  const handleDateChange = (_event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setDate(selectedDate);
+    }
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
@@ -40,6 +211,7 @@ const EntryFormScreen = () => {
           onCallPress={() => setShowCallModal(true)}
           onMenuPress={() => {}}
         />
+
         <View style={styles.formContainer}>
           <TextInput
             style={styles.input}
@@ -49,7 +221,9 @@ const EntryFormScreen = () => {
             keyboardType="numeric"
             placeholderTextColor="#B0B0B0"
           />
+
           <View style={{ height: 16 }} />
+
           <View style={styles.noteRow}>
             <TextInput
               style={[styles.input, { flex: 1 }]}
@@ -62,6 +236,8 @@ const EntryFormScreen = () => {
               <Feather name="mic" size={20} color="#2F51FF" />
             </TouchableOpacity>
           </View>
+
+          {/* Audio Row (dummy) */}
           <View style={styles.audioRow}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Ionicons name="play" size={20} color="#2F51FF" />
@@ -71,17 +247,26 @@ const EntryFormScreen = () => {
               <Feather name="trash-2" size={18} color="#F00000" />
             </TouchableOpacity>
           </View>
+
+          {/* Calendar and Image Picker */}
           <View style={styles.optionsRow}>
-            <TouchableOpacity style={styles.optionBtn}>
+            <TouchableOpacity
+              style={styles.optionBtn}
+              onPress={() => setShowDatePicker(true)}
+            >
               <Ionicons
                 name="calendar-outline"
                 size={18}
                 color="#2F51FF"
                 style={{ marginRight: 6 }}
               />
-              <Text style={styles.optionBtnText}>{date}</Text>
+              <Text style={styles.optionBtnText}>{formattedDate}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.optionBtn}>
+
+            <TouchableOpacity
+              style={styles.optionBtn}
+              onPress={handlePickImage}
+            >
               <Ionicons
                 name="camera-outline"
                 size={18}
@@ -91,14 +276,20 @@ const EntryFormScreen = () => {
               <Text style={styles.optionBtnText}>Add bills</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.billPreviewRow}>
-            <Image
-              source={require("../../assets/home-empty.png")}
-              style={styles.billPreview}
-              resizeMode="contain"
-            />
-          </View>
+
+          {/* Bill Image Preview */}
+          {imageUri && (
+            <View style={styles.billPreviewRow}>
+              <Image
+                source={{ uri: imageUri }}
+                style={styles.billPreview}
+                resizeMode="contain"
+              />
+            </View>
+          )}
         </View>
+
+        {/* Save Button */}
         <TouchableOpacity
           style={styles.saveBtn}
           onPress={() => navigation.navigate("ContactHistory", { contact })}
@@ -106,6 +297,7 @@ const EntryFormScreen = () => {
           <Text style={styles.saveBtnText}>Save</Text>
         </TouchableOpacity>
 
+        {/* Modal for Call */}
         <Modal
           visible={showCallModal}
           transparent
@@ -118,6 +310,16 @@ const EntryFormScreen = () => {
             onPress={() => setShowCallModal(false)}
           />
         </Modal>
+
+        {/* Date Picker (native) */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={date}
+            mode="date"
+            display={Platform.OS === "ios" ? "spinner" : "default"}
+            onChange={handleDateChange}
+          />
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
