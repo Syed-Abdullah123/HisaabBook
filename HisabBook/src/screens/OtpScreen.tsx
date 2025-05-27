@@ -14,12 +14,11 @@ import {
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { auth } from "../../firebaseConfig";
-import { onAuthStateChanged } from "@react-native-firebase/auth";
 import {
   getConfirmationResult,
   clearConfirmationResult,
 } from "../utils/authState";
+import { AuthContext } from "../context/AuthProvider";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 25;
@@ -46,16 +45,6 @@ const OtpScreen = () => {
   const navigation = useNavigation<OtpScreenNavigationProp>();
   const route = useRoute<OtpScreenRouteProp>();
   const { phone } = route.params;
-
-  useEffect(() => {
-    const subscriber = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // User is signed in, navigate to main app
-        navigation.navigate("BuisnessName");
-      }
-    });
-    return subscriber; // unsubscribe on unmount
-  }, [navigation]);
 
   useEffect(() => {
     if (timeLeft === 0) return;
@@ -103,8 +92,10 @@ const OtpScreen = () => {
       }
       await confirmation.confirm(otpString);
       clearConfirmationResult(); // Clear the confirmation after successful verification
+
+      // Don't manually navigate - let AuthProvider handle the state change
+      // The user will automatically be moved to OnboardingStack (BuisnessName screen)
       setLoading(false);
-      // Navigation will be handled by the auth state listener
     } catch (error: any) {
       setLoading(false);
       Alert.alert("Error", error.message);
