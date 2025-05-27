@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import {
   View,
   Text,
@@ -8,28 +8,66 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Contacts from "expo-contacts";
+import { AuthContext } from "../context/AuthProvider";
 
 const BusinessNameScreen = () => {
   const [name, setName] = useState("");
   const navigation = useNavigation();
   const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const { completeOnboarding } = useContext(AuthContext);
 
   const handleFinish = () => {
     setShowPermissionModal(true);
   };
 
-  const handlePermissionGranted = () => {
+  const handlePermissionGranted = async () => {
+    try {
+      // Request contacts permission
+      const { status } = await Contacts.requestPermissionsAsync();
+
+      if (status === "granted") {
+        // Optional: You can fetch contacts here to verify permission works
+        // const { data } = await Contacts.getContactsAsync({
+        //   fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
+        // });
+        // console.log('Contacts count:', data.length);
+
+        Alert.alert(
+          "Success",
+          "Contacts access granted! You can now manage your business contacts.",
+          [{ text: "OK", onPress: () => {} }]
+        );
+      } else {
+        Alert.alert(
+          "Permission Denied",
+          "Without contacts access, you'll need to add contacts manually.",
+          [{ text: "OK", onPress: () => {} }]
+        );
+      }
+    } catch (error) {
+      console.error("Error requesting contacts permission:", error);
+      Alert.alert(
+        "Error",
+        "There was an error requesting contacts permission.",
+        [{ text: "OK", onPress: () => {} }]
+      );
+    }
+
     setShowPermissionModal(false);
-    // TODO: Implement contacts permission request
-    navigation.navigate("Tab");
+    // Mark onboarding as complete regardless of permission status
+    await completeOnboarding();
   };
 
-  const handlePermissionDenied = () => {
+  const handlePermissionDenied = async () => {
     setShowPermissionModal(false);
-    navigation.navigate("Tab");
+
+    // Mark onboarding as complete even if permission denied
+    await completeOnboarding();
   };
 
   return (
