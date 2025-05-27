@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -9,48 +9,93 @@ import {
   SafeAreaView,
   Platform,
   KeyboardAvoidingView,
+  ActivityIndicator,
+  PermissionsAndroid,
 } from "react-native";
+import * as Contacts from "expo-contacts";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
-const DUMMY_CONTACTS = [
-  { id: "1", name: "Junaid", number: "04235678901" },
-  { id: "2", name: "Liam", number: "05567891234" },
-  { id: "3", name: "Maya", number: "06678912345" },
-  { id: "4", name: "Noah", number: "07789023456" },
-  { id: "5", name: "Olivia", number: "08890134567" },
-  { id: "6", name: "Ethan", number: "09901245678" },
-  { id: "7", name: "Sophia", number: "11012356789" },
-];
+const PAGE_SIZE = 50; // Load 50 contacts at a time
 
 const AddContact = () => {
   const [search, setSearch] = useState("");
-  const [contacts, setContacts] = useState(DUMMY_CONTACTS);
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [offset, setOffset] = useState(0);
+
   const navigation = useNavigation();
 
-  const filteredContacts = contacts.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.number.includes(search)
-  );
+  // Request permissions and load first page
+  useEffect(() => {
+    (async () => {
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status === "granted") {
+        loadContacts(); // Load first batch
+      } else {
+        console.warn("Permission denied for contacts.");
+      }
+    })();
+  }, []);
 
-  const renderContact = ({ item }: { item: (typeof DUMMY_CONTACTS)[0] }) => (
-    <View style={styles.contactRow}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{item.name[0]}</Text>
+  const loadContacts = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const { data, hasNextPage } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.PhoneNumbers],
+        pageSize: PAGE_SIZE,
+        pageOffset: offset,
+      });
+
+      // Filter out contacts with no phone number
+      const filtered = data.filter((c) => c.phoneNumbers?.length > 0);
+
+      setContacts((prev) => [...prev, ...filtered]);
+      setHasNextPage(hasNextPage);
+      setOffset((prev) => prev + PAGE_SIZE);
+    } catch (err) {
+      console.error("Error loading contacts:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredContacts = contacts.filter((c) => {
+    const name = c.name?.toLowerCase() || "";
+    const number = c.phoneNumbers?.[0]?.number || "";
+    return name.includes(search.toLowerCase()) || number.includes(search);
+  });
+
+  const renderContact = ({ item }: { item: any }) => {
+    const number = item.phoneNumbers?.[0]?.number || "No Number";
+    return (
+      <View style={styles.contactRow}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{item.name?.[0] || "?"}</Text>
+        </View>
+        <View style={styles.contactInfo}>
+          <Text style={styles.contactName}>{item.name}</Text>
+          <Text style={styles.contactNumber}>{number}</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={() =>
+            navigation.navigate("ContactDetails", {
+              contact: {
+                name: item.name,
+                number,
+              },
+            })
+          }
+        >
+          <Text style={styles.addBtnText}>+ Add</Text>
+        </TouchableOpacity>
       </View>
-      <View style={styles.contactInfo}>
-        <Text style={styles.contactName}>{item.name}</Text>
-        <Text style={styles.contactNumber}>{item.number}</Text>
-      </View>
-      <TouchableOpacity
-        style={styles.addBtn}
-        onPress={() => navigation.navigate("ContactDetails", { contact: item })}
-      >
-        <Text style={styles.addBtnText}>+ Add</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
@@ -59,9 +104,6 @@ const AddContact = () => {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.headerRow}>
-          {/* <TouchableOpacity style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={24} color="black" />
-          </TouchableOpacity> */}
           <Text style={styles.headerTitle}>Contact Add Karain</Text>
         </View>
         <View style={styles.searchBarContainer}>
@@ -80,6 +122,15 @@ const AddContact = () => {
           renderItem={renderContact}
           contentContainerStyle={{ paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
+          onEndReached={() => {
+            if (hasNextPage) {
+              loadContacts();
+            }
+          }}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={
+            loading ? <ActivityIndicator size="small" /> : null
+          }
         />
         <TouchableOpacity
           style={styles.bottomBtn}
