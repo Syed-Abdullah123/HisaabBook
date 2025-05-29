@@ -1,141 +1,3 @@
-// import React, { useState } from "react";
-// import {
-//   View,
-//   Text,
-//   StyleSheet,
-//   TextInput,
-//   TouchableOpacity,
-//   SafeAreaView,
-//   Platform,
-//   KeyboardAvoidingView,
-//   Image,
-//   Modal,
-// } from "react-native";
-// import { Ionicons, Feather } from "@expo/vector-icons";
-// import { useNavigation, useRoute } from "@react-navigation/native";
-// import ContactHeader from "../components/ContactHeader";
-
-// import DateTimePicker from "@react-native-community/datetimepicker";
-// import * as ImagePicker from "expo-image-picker"
-
-// const EntryFormScreen = () => {
-//   const navigation = useNavigation();
-//   const route = useRoute();
-//   const contact = route.params?.contact || { name: "Junaid" };
-//   const type = route.params?.type || "diye";
-
-//   const [amount, setAmount] = useState("");
-//   const [note, setNote] = useState("");
-//   const [date, setDate] = useState(new Date());
-//   // Dummy: no real audio or bill logic
-//   const [showDatePicker, setShowDatePicker] = useState(false);
-//   const [selectedDate, setSelectedDate] = useState(new Date());
-
-//   return (
-//     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
-//       <KeyboardAvoidingView
-//         style={{ flex: 1 }}
-//         behavior={Platform.OS === "ios" ? "padding" : undefined}
-//       >
-//         <ContactHeader
-//           name={contact.name}
-//           number={contact.number}
-//           onBackPress={() => navigation.goBack()}
-//           onMenuPress={() => {}}
-//         />
-//         <View style={styles.formContainer}>
-//           <TextInput
-//             style={styles.input}
-//             placeholder="Rs. 3500"
-//             value={amount}
-//             onChangeText={setAmount}
-//             keyboardType="numeric"
-//             placeholderTextColor="#B0B0B0"
-//           />
-//           <View style={{ height: 16 }} />
-//           <View style={styles.noteRow}>
-//             <TextInput
-//               style={[styles.input, { flex: 1 }]}
-//               placeholder="Feb ki kameti"
-//               value={note}
-//               onChangeText={setNote}
-//               placeholderTextColor="#B0B0B0"
-//             />
-//             <TouchableOpacity style={styles.micBtn}>
-//               <Feather name="mic" size={20} color="#2F51FF" />
-//             </TouchableOpacity>
-//           </View>
-//           <View style={styles.audioRow}>
-//             <View style={{ flexDirection: "row", alignItems: "center" }}>
-//               <Ionicons name="play" size={20} color="#2F51FF" />
-//               <Text style={{ marginHorizontal: 8, color: "#222" }}>0.11</Text>
-//             </View>
-//             <TouchableOpacity>
-//               <Feather name="trash-2" size={18} color="#F00000" />
-//             </TouchableOpacity>
-//           </View>
-//           <View style={styles.optionsRow}>
-//             <TouchableOpacity
-//               style={styles.optionBtn}
-//               onPress={() => setShowDatePicker(true)}
-//             >
-//               <Ionicons
-//                 name="calendar-outline"
-//                 size={18}
-//                 color="#2F51FF"
-//                 style={{ marginRight: 6 }}
-//               />
-//               <Text style={styles.optionBtnText}>{date}</Text>
-//             </TouchableOpacity>
-
-//             {showDatePicker && (
-//               <DateTimePicker
-//                 value={selectedDate}
-//                 mode="date"
-//                 display="default"
-//                 onChange={(event, selected) => {
-//                   setShowDatePicker(false);
-//                   if (selected) {
-//                     setSelectedDate(selected);
-//                     const formatted = selected.toLocaleDateString("en-GB", {
-//                       day: "numeric",
-//                       month: "short",
-//                       year: "numeric",
-//                     });
-//                     setDate(formatted); // E.g., 27 May, 2025
-//                   }
-//                 }}
-//               />
-//             )}
-//             <TouchableOpacity style={styles.optionBtn}>
-//               <Ionicons
-//                 name="camera-outline"
-//                 size={18}
-//                 color="#2F51FF"
-//                 style={{ marginRight: 6 }}
-//               />
-//               <Text style={styles.optionBtnText}>Add bills</Text>
-//             </TouchableOpacity>
-//           </View>
-//           <View style={styles.billPreviewRow}>
-//             <Image
-//               source={require("../../assets/home-empty.png")}
-//               style={styles.billPreview}
-//               resizeMode="contain"
-//             />
-//           </View>
-//         </View>
-//         <TouchableOpacity
-//           style={styles.saveBtn}
-//           onPress={() => navigation.navigate("ContactHistory", { contact })}
-//         >
-//           <Text style={styles.saveBtnText}>Save</Text>
-//         </TouchableOpacity>
-//       </KeyboardAvoidingView>
-//     </SafeAreaView>
-//   );
-// };
-
 import React, { useState } from "react";
 import {
   View,
@@ -148,17 +10,27 @@ import {
   Platform,
   Modal,
   KeyboardAvoidingView,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons, Feather } from "@expo/vector-icons";
-import ContactHeader from "../components/ContactHeader"; // Reuse your header
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+} from "@react-native-firebase/firestore";
+import { firestore } from "../../firebaseConfig";
+import auth from "@react-native-firebase/auth";
+import ContactHeader from "../components/ContactHeader";
+import { cleanPhoneNumber } from "../utils/contactUtils";
 
 const EntryFormScreen = () => {
-  const navigation = useNavigation();
-  const route = useRoute();
-  const contact = route.params?.contact || { name: "Junaid" };
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const contact = route.params?.contact || { name: "Junaid", id: "default" };
   const type = route.params?.type || "diye";
 
   const [amount, setAmount] = useState("");
@@ -167,6 +39,8 @@ const EntryFormScreen = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [showCallModal, setShowCallModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  // const [uploadingImage, setUploadingImage] = useState(false);
 
   const formattedDate = date.toLocaleDateString("en-GB", {
     day: "numeric",
@@ -177,7 +51,10 @@ const EntryFormScreen = () => {
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      alert("Camera permission is required.");
+      Alert.alert(
+        "Permission Required",
+        "Camera permission is required to take photos."
+      );
       return;
     }
 
@@ -198,6 +75,65 @@ const EntryFormScreen = () => {
     }
   };
 
+  const handleSave = async () => {
+    if (!amount) {
+      Alert.alert("Error", "Please enter an amount");
+      return;
+    }
+
+    if (isNaN(parseFloat(amount))) {
+      Alert.alert("Error", "Please enter a valid amount");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const user = auth().currentUser;
+      console.log("Current user:", user);
+      if (!user) {
+        Alert.alert("Error", "You must be logged in to save a transaction.");
+        setSaving(false);
+        return;
+      }
+
+      // Generate contactId from phone number
+      const contactId = cleanPhoneNumber(contact.number);
+      if (!contactId) {
+        Alert.alert("Error", "Contact ID is missing.");
+        setSaving(false);
+        return;
+      }
+
+      const transactionData = {
+        contactId: contactId,
+        contactName: contact.name,
+        contactNumber: contact.number,
+        date: date, // JS Date object
+        type: type,
+        amount: parseFloat(amount),
+        note: note.trim(),
+        imageUri: imageUri || null,
+        createdAt: serverTimestamp(),
+        userId: user.uid,
+      };
+
+      await addDoc(collection(firestore, "transactions"), transactionData);
+
+      Alert.alert("Success", "Transaction saved successfully!", [
+        {
+          text: "OK",
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    } catch (error) {
+      console.error("Error saving transaction:", error);
+      Alert.alert("Error", "Failed to save transaction. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
       <KeyboardAvoidingView
@@ -208,7 +144,6 @@ const EntryFormScreen = () => {
           name={contact.name}
           number={contact.number}
           onBackPress={() => navigation.goBack()}
-          onCallPress={() => setShowCallModal(true)}
           onMenuPress={() => {}}
         />
 
@@ -220,6 +155,7 @@ const EntryFormScreen = () => {
             onChangeText={setAmount}
             keyboardType="numeric"
             placeholderTextColor="#B0B0B0"
+            editable={!saving}
           />
 
           <View style={{ height: 16 }} />
@@ -227,32 +163,22 @@ const EntryFormScreen = () => {
           <View style={styles.noteRow}>
             <TextInput
               style={[styles.input, { flex: 1 }]}
-              placeholder="Feb ki kameti"
+              placeholder="Feb ki kameti (optional)"
               value={note}
               onChangeText={setNote}
               placeholderTextColor="#B0B0B0"
+              editable={!saving}
             />
-            <TouchableOpacity style={styles.micBtn}>
+            {/* <TouchableOpacity style={styles.micBtn}>
               <Feather name="mic" size={20} color="#2F51FF" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
 
-          {/* Audio Row (dummy) */}
-          <View style={styles.audioRow}>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Ionicons name="play" size={20} color="#2F51FF" />
-              <Text style={{ marginHorizontal: 8, color: "#222" }}>0.11</Text>
-            </View>
-            <TouchableOpacity>
-              <Feather name="trash-2" size={18} color="#F00000" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Calendar and Image Picker */}
           <View style={styles.optionsRow}>
             <TouchableOpacity
               style={styles.optionBtn}
               onPress={() => setShowDatePicker(true)}
+              disabled={saving}
             >
               <Ionicons
                 name="calendar-outline"
@@ -262,6 +188,15 @@ const EntryFormScreen = () => {
               />
               <Text style={styles.optionBtnText}>{formattedDate}</Text>
             </TouchableOpacity>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={date}
+                mode="date"
+                display="default"
+                onChange={handleDateChange}
+              />
+            )}
 
             <TouchableOpacity
               style={styles.optionBtn}
@@ -277,7 +212,6 @@ const EntryFormScreen = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Bill Image Preview */}
           {imageUri && (
             <View style={styles.billPreviewRow}>
               <Image
@@ -289,37 +223,17 @@ const EntryFormScreen = () => {
           )}
         </View>
 
-        {/* Save Button */}
         <TouchableOpacity
-          style={styles.saveBtn}
-          onPress={() => navigation.navigate("ContactHistory", { contact })}
+          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+          onPress={handleSave}
+          disabled={saving}
         >
-          <Text style={styles.saveBtnText}>Save</Text>
+          {saving ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.saveBtnText}>Save</Text>
+          )}
         </TouchableOpacity>
-
-        {/* Modal for Call */}
-        <Modal
-          visible={showCallModal}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowCallModal(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setShowCallModal(false)}
-          />
-        </Modal>
-
-        {/* Date Picker (native) */}
-        {showDatePicker && (
-          <DateTimePicker
-            value={date}
-            mode="date"
-            display={Platform.OS === "ios" ? "spinner" : "default"}
-            onChange={handleDateChange}
-          />
-        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -328,115 +242,75 @@ const EntryFormScreen = () => {
 export default EntryFormScreen;
 
 const styles = StyleSheet.create({
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 38,
-    paddingBottom: 8,
-    backgroundColor: "#fff",
-  },
-  backBtn: {
-    marginRight: 8,
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#222",
-    flex: 1,
-    textAlign: "center",
-  },
   formContainer: {
-    paddingHorizontal: 16,
-    marginTop: 16,
+    padding: 24,
   },
   input: {
-    backgroundColor: "#F5F6FA",
+    backgroundColor: "#F5F5F5",
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    paddingHorizontal: 16,
-    height: 44,
+    padding: 16,
     fontSize: 16,
     color: "#222",
   },
   noteRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 12,
   },
   micBtn: {
-    marginLeft: 8,
-    backgroundColor: "#F5F6FA",
-    borderRadius: 8,
-    padding: 10,
+    width: 48,
+    height: 48,
+    backgroundColor: "#F5F5F5",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
   },
   audioRow: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 16,
-    marginBottom: 8,
-    backgroundColor: "#F5F6FA",
-    borderRadius: 8,
-    padding: 8,
-    width: "70%",
+    alignItems: "center",
+    marginTop: 12,
+    paddingHorizontal: 8,
   },
   optionsRow: {
     flexDirection: "row",
-    width: "100%",
-    justifyContent: "space-between",
-    // backgroundColor: "red",
-    marginTop: 12,
     gap: 12,
+    marginTop: 24,
   },
   optionBtn: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginRight: 8,
+    backgroundColor: "#F5F5F5",
+    padding: 12,
+    borderRadius: 12,
   },
   optionBtnText: {
     color: "#222",
     fontSize: 14,
   },
   billPreviewRow: {
-    marginTop: 16,
-    alignItems: "flex-start",
+    marginTop: 24,
+    alignItems: "center",
   },
   billPreview: {
-    width: 100,
-    height: 130,
-    borderRadius: 8,
-    backgroundColor: "#F5F6FA",
+    width: 200,
+    height: 200,
+    borderRadius: 12,
   },
   saveBtn: {
-    position: "absolute",
-    left: 16,
-    right: 16,
-    bottom: 24,
     backgroundColor: "#2F51FF",
+    margin: 24,
+    padding: 16,
     borderRadius: 12,
-    paddingVertical: 16,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+  },
+  saveBtnDisabled: {
+    backgroundColor: "#adb5bd",
   },
   saveBtnText: {
     color: "#fff",
-    fontWeight: "bold",
-    fontSize: 17,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.18)",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
