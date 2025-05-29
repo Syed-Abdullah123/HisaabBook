@@ -7,10 +7,31 @@ import {
   Image,
   SafeAreaView,
   FlatList,
+  ActivityIndicator,
+  Platform,
+  Modal,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  useFocusEffect,
+} from "@react-navigation/native";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  doc,
+  setDoc,
+  getDoc,
+} from "@react-native-firebase/firestore";
 import ContactHeader from "../components/ContactHeader";
+import { firestore } from "../../firebaseConfig";
+import auth from "@react-native-firebase/auth";
+import { cleanPhoneNumber } from "../utils/contactUtils";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 interface Contact {
   name: string;
@@ -20,11 +41,13 @@ interface Contact {
 
 interface Transaction {
   id: string;
+  contactId: string;
   date: Date;
   type: "diye" | "liye";
   amount: number;
   note: string;
-  balance: number;
+  imageUri?: string;
+  createdAt: Date;
 }
 
 type RootStackParamList = {
@@ -42,6 +65,63 @@ const ContactDetailsScreen = () => {
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [balance, setBalance] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [showWasooliModal, setShowWasooliModal] = useState(false);
+  const [selectedWasooliOption, setSelectedWasooliOption] = useState<
+    "week" | "month" | null
+  >(null);
+  const [customWasooliDate, setCustomWasooliDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [wasooliDate, setWasooliDate] = useState<Date | null>(null);
+
+  // Create a unique contact ID based on phone number
+  const contactId = cleanPhoneNumber(contact.number); // Remove non-digits
+  const user = auth().currentUser;
+
+  // Real-time listener for transactions
+  useEffect(() => {
+    const transactionsRef = collection(firestore, "transactions");
+    const user = auth().currentUser;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    const q = query(
+      transactionsRef,
+      where("contactId", "==", contactId),
+      where("userId", "==", user.uid),
+      // orderBy("date", "desc")
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const transactionsList: Transaction[] = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          transactionsList.push({
+            id: doc.id,
+            contactId: data.contactId,
+            date: data.date.toDate(),
+            type: data.type,
+            amount: data.amount,
+            note: data.note || "",
+            imageUri: data.imageUri,
+            createdAt: data.createdAt.toDate(),
+          });
+        });
+        setTransactions(transactionsList);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error fetching transactions:", error);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [contactId]);
 
   // Calculate balance and determine if it's "dene hain" or "lene hain"
   useEffect(() => {
@@ -54,7 +134,56 @@ const ContactDetailsScreen = () => {
     setBalance(newBalance);
   }, [transactions]);
 
-  const balanceType = balance > 0 ? "dene hain" : "lene hain";
+  useEffect(() => {
+    const fetchWasooliDate = async () => {
+      if (!user) return;
+      const docRef = doc(firestore, "wasooliDates", `${user.uid}_${contactId}`);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.wasooliDate && data.wasooliDate.toDate) {
+          setWasooliDate(data.wasooliDate.toDate());
+        }
+      }
+    };
+    fetchWasooliDate();
+  }, [user, contactId]);
+
+  const balanceType = balance > 0 ? "lene hain" : "dene hain";
+
+  function getWasooliMessage() {
+    let date: Date | null = null;
+    if (selectedWasooliOption === "week") {
+      date = new Date();
+      date.setDate(date.getDate() + 7);
+    } else if (selectedWasooliOption === "month") {
+      date = new Date();
+      date.setMonth(date.getMonth() + 1);
+    } else if (customWasooliDate) {
+      date = customWasooliDate;
+    }
+    if (date) {
+      return `${date.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+      })} ko ${contact.name} ko wasooli ke liye automatic SMS bheja jaega.`;
+    }
+    return "Wasooli ki tareekh select karien.";
+  }
+
+  const saveWasooliDate = async (date: Date | null) => {
+    if (!user) return;
+    try {
+      await setDoc(doc(firestore, "wasooliDates", `${user.uid}_${contactId}`), {
+        userId: user.uid,
+        contactId,
+        wasooliDate: date,
+      });
+      console.log("Wasooli date saved:", date);
+    } catch (e) {
+      console.error("Error saving wasooli date:", e);
+    }
+  };
 
   const renderTransaction = ({ item }: { item: Transaction }) => (
     <View style={styles.transactionRow}>
@@ -66,11 +195,14 @@ const ContactDetailsScreen = () => {
             year: "numeric",
           })}
         </Text>
-        <View style={styles.transactionBalanceTag}>
-          <Text style={styles.transactionBalanceText}>
-            Bal. Rs. {item.balance}
-          </Text>
-        </View>
+        {item.note && <Text style={styles.transactionNote}>{item.note}</Text>}
+
+        {item.imageUri && (
+          <TouchableOpacity style={styles.imageIndicator}>
+            <Ionicons name="image-outline" size={16} color="#2F51FF" />
+            <Text style={styles.imageIndicatorText}>Bill attached</Text>
+          </TouchableOpacity>
+        )}
       </View>
       <View style={styles.transactionAmountCol}>
         {item.type === "diye" ? (
@@ -89,6 +221,23 @@ const ContactDetailsScreen = () => {
     </View>
   );
 
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+        <ContactHeader
+          name={contact.name}
+          number={contact.number}
+          onBackPress={() => navigation.goBack()}
+          onMenuPress={() => {}}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2F51FF" />
+          <Text style={styles.loadingText}>Loading transactions...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
       <ContactHeader
@@ -100,16 +249,27 @@ const ContactDetailsScreen = () => {
 
       <View style={styles.balanceCard}>
         <View style={styles.balanceLeftColumn}>
-          <Text style={styles.balanceType}>Maine {balanceType} hain</Text>
+          <Text style={styles.balanceType}>Maine {balanceType}</Text>
           <Text style={styles.balanceAmount}>Rs.{Math.abs(balance)}</Text>
-          <TouchableOpacity style={styles.wasooliBtn}>
+          <TouchableOpacity
+            style={styles.wasooliBtn}
+            onPress={() => setShowWasooliModal(true)}
+          >
             <Ionicons
               name="calendar-outline"
               size={18}
               color="#888"
               style={{ marginRight: 6 }}
             />
-            <Text style={styles.wasooliBtnText}>Wasooli Date</Text>
+            <Text style={styles.wasooliBtnText}>
+              {wasooliDate
+                ? wasooliDate.toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })
+                : "Wasooli Date"}
+            </Text>
           </TouchableOpacity>
         </View>
         <View style={styles.balanceRightColumn}>
@@ -215,6 +375,126 @@ const ContactDetailsScreen = () => {
           <Text style={styles.actionBtnText}>Maine Liye</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={showWasooliModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowWasooliModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            onPress={() => setShowWasooliModal(false)}
+          />
+          <View style={styles.bottomSheet}>
+            <View style={styles.dragIndicator} />
+            {/* Illustration */}
+            <View style={{ alignItems: "center", marginBottom: 12 }}>
+              <Ionicons name="cash-outline" size={40} color="#2F51FF" />
+            </View>
+            <Text style={styles.modalTitle}>Wasooli ki tareekh set karien</Text>
+            <Text style={styles.modalSubtitle}>{getWasooliMessage()}</Text>
+            <View style={styles.optionRow}>
+              <TouchableOpacity
+                style={[
+                  styles.optionBtn,
+                  selectedWasooliOption === "week" && styles.optionBtnSelected,
+                ]}
+                onPress={() => {
+                  if (selectedWasooliOption === "week") {
+                    setSelectedWasooliOption(null);
+                    setWasooliDate(null);
+                  } else {
+                    const date = new Date();
+                    date.setDate(date.getDate() + 7);
+                    setWasooliDate(date);
+                    setSelectedWasooliOption("week");
+                    setShowWasooliModal(false);
+                    saveWasooliDate(date);
+                  }
+                }}
+              >
+                <Text
+                  style={[
+                    styles.optionBtnText,
+                    selectedWasooliOption === "week" &&
+                      styles.optionBtnTextSelected,
+                  ]}
+                >
+                  Agla Hafta
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.optionBtn,
+                  selectedWasooliOption === "month" && styles.optionBtnSelected,
+                ]}
+                onPress={() => {
+                  if (selectedWasooliOption === "month") {
+                    setSelectedWasooliOption(null);
+                    setWasooliDate(null);
+                  } else {
+                    const date = new Date();
+                    date.setMonth(date.getMonth() + 1);
+                    setWasooliDate(date);
+                    setSelectedWasooliOption("month");
+                    setShowWasooliModal(false); // close modal
+                    // saveWasooliDate(date);
+                  }
+                }}
+              >
+                <Text
+                  style={[
+                    styles.optionBtnText,
+                    selectedWasooliOption === "month" &&
+                      styles.optionBtnTextSelected,
+                  ]}
+                >
+                  Agla Mahina
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.dateBtn}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Ionicons
+                name="calendar-outline"
+                size={18}
+                color="#2F51FF"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.dateBtnText}>
+                {customWasooliDate
+                  ? customWasooliDate.toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : "Tareekh darj karein"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        {showDatePicker && (
+          <DateTimePicker
+            value={customWasooliDate || new Date()}
+            mode="date"
+            display={Platform.OS === "ios" ? "spinner" : "default"}
+            onChange={(_, date) => {
+              setShowDatePicker(false);
+              if (date) {
+                setCustomWasooliDate(date);
+                setWasooliDate(date); // set the main date
+                setSelectedWasooliOption(null); // Deselect quick options
+                setShowWasooliModal(false); // close modal
+                saveWasooliDate(date);
+              }
+            }}
+          />
+        )}
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -248,29 +528,27 @@ const styles = StyleSheet.create({
   },
   balanceType: {
     fontSize: 15,
-    color: "#222",
-    marginBottom: 6,
+    color: "#666",
+    marginBottom: 4,
   },
   balanceAmount: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "bold",
-    color: "#F00000",
-    marginBottom: 0,
+    color: "#222",
+    marginBottom: 12,
   },
   wasooliBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F5F6FA",
-    borderRadius: 10,
+    backgroundColor: "#F5F5F5",
     paddingVertical: 8,
     paddingHorizontal: 12,
-    marginTop: 12,
+    borderRadius: 8,
     alignSelf: "flex-start",
   },
   wasooliBtnText: {
-    color: "#888",
-    fontWeight: "600",
     fontSize: 13,
+    color: "#888",
   },
   balanceActionBtnCol: {
     flexDirection: "row",
@@ -292,11 +570,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 16,
+    // marginTop: 16,
   },
   illustration: {
-    width: 120,
-    height: 120,
+    width: 200,
+    height: 200,
     marginBottom: 18,
   },
   instruction: {
@@ -308,74 +586,68 @@ const styles = StyleSheet.create({
   },
   tableHeaderRow: {
     flexDirection: "row",
-    backgroundColor: "#F5F6FA",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    marginHorizontal: 16,
-    marginBottom: 4,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: "#F5F5F5",
   },
   tableHeader: {
-    flex: 1,
-    fontWeight: "bold",
-    color: "#888",
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666",
+    width: 100,
     textAlign: "center",
   },
   transactionRow: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
+    paddingHorizontal: 24,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderColor: "#F5F6FA",
-    marginHorizontal: 16,
-    paddingVertical: 12,
+    borderBottomColor: "#F0F0F0",
   },
   transactionDate: {
-    fontSize: 13,
-    color: "#888",
-    marginBottom: 2,
+    fontSize: 14,
+    color: "#222",
+    marginBottom: 4,
   },
-  transactionBalanceTag: {
-    backgroundColor: "#F5F6FA",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    alignSelf: "flex-start",
-    marginTop: 2,
-  },
-  transactionBalanceText: {
-    color: "#2ECC40",
+  transactionNote: {
     fontSize: 12,
-    fontWeight: "bold",
+    color: "#666",
+  },
+  imageIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  imageIndicatorText: {
+    fontSize: 10,
+    color: "#2F51FF",
+    marginLeft: 4,
   },
   transactionAmountCol: {
-    flex: 1,
+    width: 100,
     alignItems: "center",
     justifyContent: "center",
   },
   transactionDiye: {
+    fontSize: 14,
     color: "#F00000",
-    fontWeight: "bold",
-    fontSize: 15,
-    textAlign: "center",
+    fontWeight: "500",
   },
   transactionLiye: {
-    color: "#2ECC40",
-    fontWeight: "bold",
-    fontSize: 15,
-    textAlign: "center",
+    fontSize: 14,
+    color: "#00A86B",
+    fontWeight: "500",
   },
   transactionEmpty: {
+    fontSize: 14,
     color: "transparent",
-    fontSize: 15,
   },
   bottomRow: {
+    position: "absolute",
+    left: 24,
+    right: 24,
+    bottom: 24,
     flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 24,
     gap: 12,
   },
   actionBtn: {
@@ -383,20 +655,101 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    padding: 16,
     borderRadius: 12,
-    paddingVertical: 16,
   },
   redBtn: {
     backgroundColor: "#F00000",
-    marginRight: 6,
   },
   greenBtn: {
-    backgroundColor: "#2ECC40",
-    marginLeft: 6,
+    backgroundColor: "#00A86B",
   },
   actionBtnText: {
     color: "#fff",
-    fontWeight: "bold",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#666",
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.18)",
+  },
+  bottomSheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    alignItems: "center",
+  },
+  dragIndicator: {
+    width: 56,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#E0E0E0",
+    alignSelf: "center",
+    marginBottom: 18,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: "bold",
+    color: "#222",
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: "#888",
+    textAlign: "center",
+    marginBottom: 18,
+  },
+  optionRow: {
+    flexDirection: "row",
+    width: "100%",
+    justifyContent: "space-between",
+    marginBottom: 18,
+    gap: 12,
+  },
+  optionBtn: {
+    flex: 1,
+    backgroundColor: "#F5F5F5",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  optionBtnSelected: {
+    backgroundColor: "#2F51FF",
+  },
+  optionBtnText: {
+    color: "#222",
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  optionBtnTextSelected: {
+    color: "#fff",
+  },
+  dateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F5F5F5",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 8,
+    width: "100%",
+    justifyContent: "center",
+  },
+  dateBtnText: {
+    color: "#2F51FF",
+    fontWeight: "600",
+    fontSize: 15,
   },
 });
