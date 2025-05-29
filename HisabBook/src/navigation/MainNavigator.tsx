@@ -13,6 +13,7 @@ import EntryFormScreen from "../screens/EntryFormScreen";
 import ContactHistoryScreen from "../screens/ContactHistoryScreen";
 import AddNewContactScreen from "../screens/AddNewContactScreen";
 import SplashScreen from "../screens/SplashScreen";
+import AllKhaataScreen from "../screens/AllKhaataScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -39,6 +40,7 @@ const AppStack = () => (
     <Stack.Screen name="EntryForm" component={EntryFormScreen} />
     <Stack.Screen name="ContactHistory" component={ContactHistoryScreen} />
     <Stack.Screen name="AddNewContact" component={AddNewContactScreen} />
+    <Stack.Screen name="AllKhaataScreen" component={AllKhaataScreen} />
   </Stack.Navigator>
 );
 
