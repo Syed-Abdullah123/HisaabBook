@@ -103,12 +103,16 @@ const ContactDetailsScreen = () => {
           transactionsList.push({
             id: doc.id,
             contactId: data.contactId,
-            date: data.date.toDate(),
+            date:
+              data.date && data.date.toDate ? data.date.toDate() : new Date(),
             type: data.type,
             amount: data.amount,
             note: data.note || "",
             imageUri: data.imageUri,
-            createdAt: data.createdAt.toDate(),
+            createdAt:
+              data.createdAt && data.createdAt.toDate
+                ? data.createdAt.toDate()
+                : new Date(),
           });
         });
         setTransactions(transactionsList);
@@ -232,7 +236,6 @@ const ContactDetailsScreen = () => {
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#2F51FF" />
-          <Text style={styles.loadingText}>Loading transactions...</Text>
         </View>
       </SafeAreaView>
     );
@@ -439,8 +442,8 @@ const ContactDetailsScreen = () => {
                     date.setMonth(date.getMonth() + 1);
                     setWasooliDate(date);
                     setSelectedWasooliOption("month");
-                    setShowWasooliModal(false); // close modal
-                    // saveWasooliDate(date);
+                    setShowWasooliModal(false);
+                    saveWasooliDate(date);
                   }
                 }}
               >
@@ -673,11 +676,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: "#666",
   },
   modalOverlay: {
     flex: 1,
