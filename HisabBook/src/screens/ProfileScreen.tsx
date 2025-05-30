@@ -133,7 +133,9 @@ const ProfileScreen = () => {
             icon={<Ionicons name="trash-outline" size={22} color="#f59e42" />}
             title="Deleted Items"
             subtitle="Recover deleted customers"
-            onPress={() => console.log("Deleted Items")}
+            onPress={() =>
+              Alert.alert("Coming Soon", "Deleted items coming soon!")
+            }
           />
           <SettingListItem
             icon={
