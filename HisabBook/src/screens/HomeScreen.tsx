@@ -10,6 +10,7 @@ import {
   Dimensions,
   Pressable,
   TextInput,
+  ActivityIndicator,
 } from "react-native";
 import auth from "@react-native-firebase/auth";
 import {
@@ -266,17 +267,23 @@ const HomeScreen = () => {
       </View>
 
       {/* List of Khaatas */}
-      <FlatList
-        data={filteredList}
-        keyExtractor={(item) => item.contactId}
-        renderItem={renderContact}
-        contentContainerStyle={{ paddingBottom: 120, marginTop: 16 }}
-        ListEmptyComponent={
-          <Text style={{ textAlign: "center", color: "#888", marginTop: 32 }}>
-            No khaata found for this filter.
-          </Text>
-        }
-      />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color="#2F51FF" />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredList}
+          keyExtractor={(item) => item.contactId}
+          renderItem={renderContact}
+          contentContainerStyle={{ paddingBottom: 120, marginTop: 16 }}
+          ListEmptyComponent={
+            <Text style={{ textAlign: "center", color: "#888", marginTop: 32 }}>
+              No khaata found for this filter.
+            </Text>
+          }
+        />
+      )}
     </View>
   );
 };
@@ -456,5 +463,10 @@ const styles = StyleSheet.create({
   contactBalance: {
     fontSize: 16,
     fontWeight: "bold",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
