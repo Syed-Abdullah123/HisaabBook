@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Modal,
   TouchableWithoutFeedback,
+  Linking,
+  Alert,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 
@@ -23,6 +25,25 @@ const ContactHeader: React.FC<ContactHeaderProps> = ({
   onMenuPress,
 }) => {
   const [showCallModal, setShowCallModal] = useState(false);
+
+  const handleSimCall = (phoneNumber: string) => {
+    Linking.openURL(`tel:${phoneNumber}`);
+  };
+
+  const handleWhatsAppCall = (phoneNumber: string) => {
+    // WhatsApp expects international format, e.g., +923001234567
+    const formatted = phoneNumber.replace(/^0/, "+92");
+    const url = `https://wa.me/${formatted}`;
+    Linking.canOpenURL(url)
+      .then((supported) => {
+        if (!supported) {
+          Alert.alert("Error", "WhatsApp is not installed");
+        } else {
+          return Linking.openURL(url);
+        }
+      })
+      .catch((err) => Alert.alert("Error", "Failed to open WhatsApp"));
+  };
 
   return (
     <>
@@ -75,7 +96,7 @@ const ContactHeader: React.FC<ContactHeaderProps> = ({
               <TouchableOpacity
                 style={styles.simBtn}
                 activeOpacity={0.8}
-                onPress={() => console.log("SIM Call pressed")}
+                onPress={() => handleSimCall(number)}
               >
                 <Ionicons
                   name="call"
@@ -88,7 +109,7 @@ const ContactHeader: React.FC<ContactHeaderProps> = ({
               <TouchableOpacity
                 style={styles.whatsappBtn}
                 activeOpacity={0.8}
-                onPress={() => console.log("WhatsApp Call pressed")}
+                onPress={() => handleWhatsAppCall(number)}
               >
                 <Ionicons
                   name="logo-whatsapp"
