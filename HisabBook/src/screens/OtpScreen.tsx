@@ -19,6 +19,8 @@ import {
   clearConfirmationResult,
 } from "../utils/authState";
 import { AuthContext } from "../context/AuthProvider";
+import { doc, setDoc } from "@react-native-firebase/firestore";
+import { firestore } from "../../firebaseConfig";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 25;
@@ -26,6 +28,7 @@ const RESEND_SECONDS = 25;
 type RootStackParamList = {
   Otp: {
     phone: string;
+    username: string;
   };
   BuisnessName: undefined;
 };
@@ -44,7 +47,7 @@ const OtpScreen = () => {
   const inputRefs = useRef<Array<TextInput | null>>([]);
   const navigation = useNavigation<OtpScreenNavigationProp>();
   const route = useRoute<OtpScreenRouteProp>();
-  const { phone } = route.params;
+  const { phone, username } = route.params;
 
   useEffect(() => {
     if (timeLeft === 0) return;
@@ -90,7 +93,20 @@ const OtpScreen = () => {
       if (!confirmation) {
         throw new Error("Verification session expired. Please try again.");
       }
-      await confirmation.confirm(otpString);
+      const result = await confirmation.confirm(otpString);
+      const user = result?.user;
+
+      // Create user document in Firestore
+      await setDoc(doc(firestore, "users", user?.uid || ""), {
+        uid: user?.uid || "",
+        phoneNumber: phone,
+        username: username,
+        createdAt: new Date(),
+        businessName: "",
+        businessType: "General",
+        currency: "RS",
+      });
+
       clearConfirmationResult(); // Clear the confirmation after successful verification
 
       // Don't manually navigate - let AuthProvider handle the state change
