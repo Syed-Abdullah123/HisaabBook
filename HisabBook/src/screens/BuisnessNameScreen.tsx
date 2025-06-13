@@ -11,18 +11,94 @@ import {
   Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import * as Contacts from "expo-contacts";
 import { AuthContext } from "../context/AuthProvider";
+import { auth, firestore } from "../../firebaseConfig";
+import { doc, updateDoc } from "@react-native-firebase/firestore";
+
+type RootStackParamList = {
+  Home: undefined;
+  BuisnessName: undefined;
+};
+
+type BusinessNameScreenNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  "BuisnessName"
+>;
 
 const BusinessNameScreen = () => {
   const [name, setName] = useState("");
-  const navigation = useNavigation();
+  const [loading, setLoading] = useState(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const navigation = useNavigation<BusinessNameScreenNavigationProp>();
   const { completeOnboarding } = useContext(AuthContext);
 
-  const handleFinish = () => {
-    setShowPermissionModal(true);
+  const handleFinish = async () => {
+    if (!name.trim()) {
+      Alert.alert("Error", "Please enter your business name");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error("No user found");
+      }
+
+      // Update user document in Firestore
+      await updateDoc(doc(firestore, "users", user.uid), {
+        businessName: name.trim(),
+        updatedAt: new Date(),
+      });
+
+      // Request contacts permission
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status === "granted") {
+        // Optional: You can fetch contacts here to verify permission works
+        // const { data } = await Contacts.getContactsAsync({
+        //   fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
+        // });
+        // console.log('Contacts count:', data.length);
+
+        Alert.alert(
+          "Success",
+          "Contacts permission granted. You can now proceed.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                completeOnboarding();
+                // @ts-ignore
+                navigation.navigate("Tab", { screen: "Home" });
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          "Permission Denied",
+          "Please grant contacts permission to use all features.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                completeOnboarding();
+                // @ts-ignore
+                navigation.navigate("Tab", { screen: "Home" });
+              },
+            },
+          ]
+        );
+      }
+    } catch (error: any) {
+      console.error("Error saving business name:", error);
+      Alert.alert("Error", error.message || "Failed to save business name");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePermissionGranted = async () => {
@@ -65,7 +141,6 @@ const BusinessNameScreen = () => {
 
   const handlePermissionDenied = async () => {
     setShowPermissionModal(false);
-
     // Mark onboarding as complete even if permission denied
     await completeOnboarding();
   };
@@ -91,11 +166,13 @@ const BusinessNameScreen = () => {
         placeholderTextColor="#B0B0B0"
       />
       <TouchableOpacity
-        style={[styles.button, !name && styles.buttonDisabled]}
-        disabled={!name}
+        style={[styles.button, (!name || loading) && styles.buttonDisabled]}
+        disabled={!name || loading}
         onPress={handleFinish}
       >
-        <Text style={styles.buttonText}>Finish</Text>
+        <Text style={styles.buttonText}>
+          {loading ? "Saving..." : "Finish"}
+        </Text>
       </TouchableOpacity>
 
       <Modal
@@ -122,7 +199,7 @@ const BusinessNameScreen = () => {
                 style={[styles.modalButton, styles.allowButton]}
                 onPress={handlePermissionGranted}
               >
-                <Text style={styles.allowButtonText}>Allow Access</Text>
+                <Text style={styles.allowButtonText}>Allow</Text>
               </TouchableOpacity>
             </View>
           </View>
