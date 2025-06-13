@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,16 +7,29 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthProvider";
 import SettingListItem from "../components/SettingListItem";
 import CustomProfileModal from "../components/CustomProfileModal";
 import { useNavigation } from "@react-navigation/native";
+import { auth, firestore } from "../../firebaseConfig";
+import { doc, getDoc, updateDoc } from "@react-native-firebase/firestore";
+
+interface UserData {
+  username: string;
+  phoneNumber: string;
+  businessName: string;
+  businessType: string;
+  currency: string;
+}
 
 const ProfileScreen = () => {
   const { user } = useContext(AuthContext);
   const navigation = useNavigation();
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
 
   // State for modals
   const [editNameModal, setEditNameModal] = useState(false);
@@ -26,11 +39,13 @@ const ProfileScreen = () => {
   const [deleteAccountModal, setDeleteAccountModal] = useState(false);
 
   // State for fields
-  const [name, setName] = useState(user?.displayName || "");
-  const [phone, setPhone] = useState(user?.phoneNumber || "");
-  const [businessName, setBusinessName] = useState("NFT"); // TODO: fetch from user profile
-  const [businessType, setBusinessType] = useState("General");
-  const [currency, setCurrency] = useState("RS");
+  const [userData, setUserData] = useState<UserData>({
+    username: "",
+    phoneNumber: "",
+    businessName: "",
+    businessType: "General",
+    currency: "RS",
+  });
 
   // For type selection
   const businessTypes = [
@@ -47,32 +62,103 @@ const ProfileScreen = () => {
   // For currency selection
   const currencyOptions = ["RS", "USD", "INR", "SAR"];
 
+  useEffect(() => {
+    fetchUserData();
+  }, [user]);
+
+  const fetchUserData = async () => {
+    if (!user) return;
+    try {
+      const userDoc = await getDoc(doc(firestore, "users", user.uid));
+      if (userDoc.exists()) {
+        const data = userDoc.data() as UserData;
+        setUserData({
+          username: data?.username || "",
+          phoneNumber: data?.phoneNumber || "",
+          businessName: data?.businessName || "",
+          businessType: data?.businessType || "General",
+          currency: data?.currency || "RS",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      Alert.alert("Error", "Failed to load user data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateUserData = async (field: keyof UserData, value: string) => {
+    if (!user) return;
+    setUpdating(true);
+    try {
+      await updateDoc(doc(firestore, "users", user.uid), {
+        [field]: value,
+      });
+      setUserData((prev) => ({ ...prev, [field]: value }));
+      return true;
+    } catch (error) {
+      console.error(`Error updating ${field}:`, error);
+      Alert.alert("Error", `Failed to update ${field}`);
+      return false;
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   // Handlers
-  const handleSaveName = () => {
-    // TODO: Save name to user profile (Firebase or Firestore)
-    setEditNameModal(false);
-    Alert.alert("Success", "Name updated successfully!");
+  const handleSaveName = async () => {
+    const success = await updateUserData("username", userData.username);
+    if (success) {
+      setEditNameModal(false);
+      Alert.alert("Success", "Name updated successfully!");
+    }
   };
-  const handleSaveBusiness = () => {
-    // TODO: Save business name
-    setEditBusinessModal(false);
-    Alert.alert("Success", "Business name updated!");
+
+  const handleSaveBusiness = async () => {
+    const success = await updateUserData("businessName", userData.businessName);
+    if (success) {
+      setEditBusinessModal(false);
+      Alert.alert("Success", "Business name updated!");
+    }
   };
-  const handleSaveType = () => {
-    // TODO: Save business type
-    setEditTypeModal(false);
-    Alert.alert("Success", "Business type updated!");
+
+  const handleSaveType = async () => {
+    const success = await updateUserData("businessType", userData.businessType);
+    if (success) {
+      setEditTypeModal(false);
+      Alert.alert("Success", "Business type updated!");
+    }
   };
-  const handleSaveCurrency = () => {
-    // TODO: Save currency
-    setEditCurrencyModal(false);
-    Alert.alert("Success", "Currency updated!");
+
+  const handleSaveCurrency = async () => {
+    const success = await updateUserData("currency", userData.currency);
+    if (success) {
+      setEditCurrencyModal(false);
+      Alert.alert("Success", "Currency updated!");
+    }
   };
-  const handleDeleteAccount = () => {
-    // TODO: Delete account logic
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    try {
+      await user.delete();
+      Alert.alert("Account Deleted", "Your account has been deleted.");
+      navigation.navigate("Welcome" as never);
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      Alert.alert("Error", "Failed to delete account. Please try again.");
+    }
     setDeleteAccountModal(false);
-    Alert.alert("Account Deleted", "Your account has been deleted.");
   };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2563eb" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -80,13 +166,17 @@ const ProfileScreen = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View style={styles.headerCard}>
           <View style={styles.avatarCircle}>
-            <Ionicons name="person" size={48} color="#2563eb" />
+            {/* <Ionicons name="person" size={48} color="#2563eb" /> */}
+            <Text style={styles.avatarText}>
+              {userData.username.charAt(0).toUpperCase()}
+            </Text>
           </View>
-          <Text style={styles.name}>{name || "User Name"}</Text>
-          <Text style={styles.phone}>{phone || "03XXXXXXXXX"}</Text>
+          <Text style={styles.name}>{userData.username || "User Name"}</Text>
+          <Text style={styles.phone}>
+            {userData.phoneNumber || "03XXXXXXXXX"}
+          </Text>
         </View>
 
         {/* Settings List */}
@@ -102,7 +192,7 @@ const ProfileScreen = () => {
           <SettingListItem
             icon={<FontAwesome5 name="store" size={20} color="#2563eb" />}
             title="Karobar Ka Name"
-            subtitle={businessName}
+            subtitle={userData.businessName}
             onPress={() => setEditBusinessModal(true)}
           />
           <SettingListItem
@@ -110,7 +200,7 @@ const ProfileScreen = () => {
               <Ionicons name="list-circle-outline" size={22} color="#2563eb" />
             }
             title="Karobar Type"
-            subtitle={businessType}
+            subtitle={userData.businessType}
             onPress={() => setEditTypeModal(true)}
           />
           <SettingListItem
@@ -126,16 +216,14 @@ const ProfileScreen = () => {
           <SettingListItem
             icon={<Ionicons name="cash-outline" size={22} color="#2563eb" />}
             title="Currency Type"
-            subtitle={currency}
+            subtitle={userData.currency}
             onPress={() => setEditCurrencyModal(true)}
           />
           <SettingListItem
             icon={<Ionicons name="trash-outline" size={22} color="#f59e42" />}
             title="Deleted Items"
             subtitle="Recover deleted customers"
-            onPress={() =>
-              Alert.alert("Coming Soon", "Deleted items coming soon!")
-            }
+            onPress={() => {}}
           />
           <SettingListItem
             icon={
@@ -160,13 +248,19 @@ const ProfileScreen = () => {
             onPress: () => setEditNameModal(false),
             type: "secondary",
           },
-          { label: "Save", onPress: handleSaveName, type: "primary" },
+          {
+            label: updating ? "Saving..." : "Save",
+            onPress: handleSaveName,
+            type: "primary",
+          },
         ]}
       >
         <TextInput
           style={styles.input}
-          value={name}
-          onChangeText={setName}
+          value={userData.username}
+          onChangeText={(text) =>
+            setUserData((prev) => ({ ...prev, username: text }))
+          }
           placeholder="Enter your name"
         />
       </CustomProfileModal>
@@ -182,14 +276,20 @@ const ProfileScreen = () => {
             onPress: () => setEditBusinessModal(false),
             type: "secondary",
           },
-          { label: "Save", onPress: handleSaveBusiness, type: "primary" },
+          {
+            label: updating ? "Saving..." : "Save",
+            onPress: handleSaveBusiness,
+            type: "primary",
+          },
         ]}
       >
         <TextInput
           style={styles.input}
-          value={businessName}
-          onChangeText={setBusinessName}
-          placeholder="Business Name"
+          value={userData.businessName}
+          onChangeText={(text) =>
+            setUserData((prev) => ({ ...prev, businessName: text }))
+          }
+          placeholder="Enter business name"
         />
       </CustomProfileModal>
 
@@ -197,87 +297,105 @@ const ProfileScreen = () => {
       <CustomProfileModal
         visible={editTypeModal}
         onClose={() => setEditTypeModal(false)}
-        title="Select Business Type"
+        title="Edit Business Type"
         actions={[
           {
             label: "Cancel",
             onPress: () => setEditTypeModal(false),
             type: "secondary",
           },
-          { label: "Save", onPress: handleSaveType, type: "primary" },
+          {
+            label: updating ? "Saving..." : "Save",
+            onPress: handleSaveType,
+            type: "primary",
+          },
         ]}
       >
-        {businessTypes.map((type) => (
-          <TouchableOpacity
-            key={type}
-            style={[
-              styles.typeOption,
-              businessType === type && styles.typeOptionSelected,
-            ]}
-            onPress={() => setBusinessType(type)}
-          >
-            <Text
-              style={{
-                color: businessType === type ? "#2563eb" : "#222",
-                fontWeight: businessType === type ? "bold" : "normal",
-              }}
+        <ScrollView style={styles.typeList}>
+          {businessTypes.map((type) => (
+            <TouchableOpacity
+              key={type}
+              style={[
+                styles.typeItem,
+                userData.businessType === type && styles.typeItemSelected,
+              ]}
+              onPress={() =>
+                setUserData((prev) => ({ ...prev, businessType: type }))
+              }
             >
-              {type}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.typeItemText,
+                  userData.businessType === type && styles.typeItemTextSelected,
+                ]}
+              >
+                {type}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </CustomProfileModal>
 
       {/* Edit Currency Modal */}
       <CustomProfileModal
         visible={editCurrencyModal}
         onClose={() => setEditCurrencyModal(false)}
-        title="Change Currency"
+        title="Edit Currency"
         actions={[
           {
             label: "Cancel",
             onPress: () => setEditCurrencyModal(false),
             type: "secondary",
           },
-          { label: "Save", onPress: handleSaveCurrency, type: "primary" },
+          {
+            label: updating ? "Saving..." : "Save",
+            onPress: handleSaveCurrency,
+            type: "primary",
+          },
         ]}
       >
-        {currencyOptions.map((cur) => (
-          <TouchableOpacity
-            key={cur}
-            style={[
-              styles.typeOption,
-              currency === cur && styles.typeOptionSelected,
-            ]}
-            onPress={() => setCurrency(cur)}
-          >
-            <Text
-              style={{
-                color: currency === cur ? "#2563eb" : "#222",
-                fontWeight: currency === cur ? "bold" : "normal",
-              }}
+        <ScrollView style={styles.typeList}>
+          {currencyOptions.map((currency) => (
+            <TouchableOpacity
+              key={currency}
+              style={[
+                styles.typeItem,
+                userData.currency === currency && styles.typeItemSelected,
+              ]}
+              onPress={() => setUserData((prev) => ({ ...prev, currency }))}
             >
-              {cur}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.typeItemText,
+                  userData.currency === currency && styles.typeItemTextSelected,
+                ]}
+              >
+                {currency}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </CustomProfileModal>
 
       {/* Delete Account Modal */}
       <CustomProfileModal
         visible={deleteAccountModal}
         onClose={() => setDeleteAccountModal(false)}
-        title="Delete Account?"
+        title="Delete Account"
         actions={[
           {
             label: "Cancel",
             onPress: () => setDeleteAccountModal(false),
             type: "secondary",
           },
-          { label: "Delete", onPress: handleDeleteAccount, type: "primary" },
+          {
+            label: "Delete",
+            onPress: handleDeleteAccount,
+            type: "primary",
+          },
         ]}
       >
-        <Text style={{ color: "#f00", textAlign: "center", marginBottom: 8 }}>
+        <Text style={styles.deleteWarning}>
           Are you sure you want to delete your account? This action cannot be
           undone.
         </Text>
@@ -289,69 +407,99 @@ const ProfileScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F6FA",
+    backgroundColor: "#fff",
     paddingTop: 38,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 40,
   },
   headerCard: {
-    backgroundColor: "#fff",
-    borderRadius: 18,
     alignItems: "center",
-    paddingVertical: 28,
-    marginBottom: 18,
+    padding: 20,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    marginBottom: 20,
     shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
     elevation: 2,
   },
   avatarCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#E8EDFB",
-    alignItems: "center",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#EFF6FF",
     justifyContent: "center",
-    marginBottom: 10,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  avatarText: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#2563eb",
   },
   name: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#222",
-    marginBottom: 2,
+    marginBottom: 4,
   },
   phone: {
-    fontSize: 15,
-    color: "#888",
-    marginBottom: 2,
+    fontSize: 16,
+    color: "#666",
   },
   settingsList: {
-    marginTop: 8,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    // shadowColor: "#000",
+    // shadowOffset: {
+    //   width: 0,
+    //   height: 2,
+    // },
+    // shadowOpacity: 0.1,
+    // shadowRadius: 3.84,
+    // elevation: 1,
   },
   input: {
-    backgroundColor: "#F5F6FA",
-    borderRadius: 10,
     borderWidth: 1,
     borderColor: "#E0E0E0",
-    paddingHorizontal: 12,
-    height: 44,
+    borderRadius: 8,
+    padding: 12,
     fontSize: 16,
-    color: "#222",
     marginBottom: 10,
   },
-  typeOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    marginBottom: 6,
-    backgroundColor: "#F5F6FA",
+  typeList: {
+    maxHeight: 300,
   },
-  typeOptionSelected: {
-    backgroundColor: "#E8EDFB",
-    borderColor: "#2563eb",
-    borderWidth: 1,
+  typeItem: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
+  },
+  typeItemSelected: {
+    backgroundColor: "#EFF6FF",
+  },
+  typeItemText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  typeItemTextSelected: {
+    color: "#2563eb",
+    fontWeight: "600",
+  },
+  deleteWarning: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 20,
   },
 });
 
