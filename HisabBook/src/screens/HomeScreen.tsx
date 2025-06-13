@@ -11,6 +11,7 @@ import {
   Pressable,
   TextInput,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import auth from "@react-native-firebase/auth";
 import {
@@ -18,6 +19,8 @@ import {
   query,
   where,
   onSnapshot,
+  doc,
+  getDoc,
 } from "@react-native-firebase/firestore";
 import { firestore } from "../../firebaseConfig";
 import { cleanPhoneNumber } from "../utils/contactUtils";
@@ -32,17 +35,44 @@ type KhaataEntry = {
   balance: number;
 };
 
+interface UserData {
+  businessName: string;
+}
+
 const HomeScreen = () => {
   const [khaataList, setKhaataList] = useState<KhaataEntry[]>([]);
   const [filter, setFilter] = useState("all"); // "all" | "lene" | "dene"
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [userData, setUserData] = useState<UserData>({ businessName: "" });
   const user = auth().currentUser;
   const navigation = useNavigation();
 
   useEffect(() => {
     if (!user) return;
     setLoading(true);
+
+    // Fetch business name
+    const fetchBusinessName = async () => {
+      try {
+        const userDoc = await getDoc(doc(firestore, "users", user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data() as UserData;
+          setUserData({
+            businessName: data?.businessName || "",
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        Alert.alert("Error", "Failed to load user data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBusinessName();
+
+    // Fetch transactions
     const q = query(
       collection(firestore, "transactions"),
       where("userId", "==", user.uid)
@@ -138,8 +168,10 @@ const HomeScreen = () => {
         {/* Top Bar */}
         <View style={styles.topBar}>
           <TouchableOpacity style={styles.dropdown}>
-            <Text style={styles.dropdownText}>NFT</Text>
-            <Ionicons name="chevron-down" size={18} color="black" />
+            <Text style={styles.dropdownText}>
+              {userData.businessName || " "}
+            </Text>
+            {/* <Ionicons name="chevron-down" size={18} color="black" /> */}
           </TouchableOpacity>
           <View style={styles.topIcons}>
             <TouchableOpacity>
@@ -193,13 +225,14 @@ const HomeScreen = () => {
       {/* Top Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.dropdown}>
-          <Text style={styles.dropdownText}>NFT</Text>
-          <Ionicons name="chevron-down" size={18} color="black" />
+          <Text style={styles.dropdownText}>
+            {userData.businessName || " "}
+          </Text>
         </TouchableOpacity>
         <View style={styles.topIcons}>
-          <TouchableOpacity>
+          {/* <TouchableOpacity>
             <EvilIcons name="refresh" size={32} color="black" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
           <TouchableOpacity
             style={styles.pdfBtn}
             onPress={() => navigation.navigate("AllKhaataScreen" as never)}
@@ -305,10 +338,10 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   dropdown: {
-    flexDirection: "row",
+    // flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F5F6FA",
-    borderRadius: 8,
+    // backgroundColor: "#F5F6FA",
+    // borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 6,
     gap: 4,
@@ -337,7 +370,7 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    backgroundColor: "#F5F6FA",
+    backgroundColor: "#F5F6FA90",
     borderRadius: 16,
     marginHorizontal: 6,
     alignItems: "center",
@@ -436,6 +469,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
+    borderWidth: 1,
+    borderColor: "#F5F6FA",
   },
   avatar: {
     width: 40,
