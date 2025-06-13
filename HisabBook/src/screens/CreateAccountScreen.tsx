@@ -12,12 +12,13 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { auth } from "../../firebaseConfig";
+import { auth, firestore } from "../../firebaseConfig";
 import {
   signInWithPhoneNumber,
   onAuthStateChanged,
 } from "@react-native-firebase/auth";
 import { setConfirmationResult } from "../utils/authState";
+import { doc, setDoc } from "@react-native-firebase/firestore";
 
 interface CreateAccountScreenProps {
   navigation: NativeStackNavigationProp<any>;
@@ -30,42 +31,46 @@ const isValidPhone = (phone: string) => {
   return /^\d{11,12}$/.test(phone);
 };
 
-const CreateAccountScreen = () => {
+const CreateAccountScreen: React.FC<CreateAccountScreenProps> = () => {
   const [phone, setPhone] = useState("");
+  const [username, setUsername] = useState("");
   const [isInputActive, setIsInputActive] = useState(false);
+  const [isUsernameActive, setIsUsernameActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation<CreateAccountScreenProps["navigation"]>();
 
-  useEffect(() => {
-    const subscriber = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // User is signed in, navigate to main app
-        navigation.navigate("BuisnessName");
-      }
-    });
-    return subscriber; // unsubscribe on unmount
-  }, [navigation]);
-
   const handleSendCode = async () => {
-    if (!isValidPhone(phone)) {
-      Alert.alert(
-        "Invalid",
-        "Please enter a valid 11-digit phone number starting with 03."
-      );
+    if (!phone || !username) {
+      Alert.alert("Error", "Please enter both phone number and username");
       return;
     }
+
+    if (phone.length < 10) {
+      Alert.alert("Error", "Please enter a valid phone number");
+      return;
+    }
+
     setLoading(true);
     try {
-      const phoneNumber = "+92" + phone.slice(1); // Convert 03xx... to +923xx...
-      const confirmation = await signInWithPhoneNumber(auth, phoneNumber);
-      setConfirmationResult(confirmation); // Store confirmation in our state
-      setLoading(false);
+      // Format phone number to include country code
+      const formattedPhone = phone.startsWith("0")
+        ? `+92${phone.slice(1)}`
+        : phone;
+
+      const confirmation = await signInWithPhoneNumber(auth, formattedPhone);
+      setConfirmationResult(confirmation);
       navigation.navigate("Otp", {
-        phone: phoneNumber,
+        phone: formattedPhone,
+        username,
       });
     } catch (error: any) {
+      console.error("Error sending code:", error);
+      Alert.alert(
+        "Error",
+        error.message || "Failed to send verification code. Please try again."
+      );
+    } finally {
       setLoading(false);
-      Alert.alert("Error", error.message);
     }
   };
 
@@ -83,16 +88,33 @@ const CreateAccountScreen = () => {
         <View
           style={[
             styles.inputContainer,
+            isUsernameActive && styles.inputContainerActive,
+          ]}
+        >
+          <TextInput
+            style={styles.input}
+            placeholder="Aapka username"
+            keyboardType="default"
+            value={username}
+            onChangeText={setUsername}
+            placeholderTextColor="#B0B0B0"
+            onFocus={() => setIsUsernameActive(true)}
+            onBlur={() => setIsUsernameActive(false)}
+          />
+        </View>
+        <View
+          style={[
+            styles.inputContainer,
             isInputActive && styles.inputContainerActive,
           ]}
         >
           {/* Flag */}
           {/* If you don't have pk-flag.png, use emoji: <Text style={{fontSize:18}}>🇵🇰</Text> */}
           {/* <Image source={PAKISTAN_FLAG} style={styles.flag} /> */}
-          <Text style={{ fontSize: 18, marginRight: 8 }}>🇵🇰</Text>
+          {/* <Text style={{ fontSize: 18, marginRight: 8 }}>🇵🇰</Text> */}
           <TextInput
             style={styles.input}
-            placeholder=""
+            placeholder="Aapka mobile number"
             keyboardType="number-pad"
             value={phone}
             onChangeText={setPhone}
@@ -103,8 +125,11 @@ const CreateAccountScreen = () => {
           />
         </View>
         <TouchableOpacity
-          style={[styles.button, !isValidPhone(phone) && styles.buttonDisabled]}
-          disabled={!isValidPhone(phone) || loading}
+          style={[
+            styles.button,
+            (!isValidPhone(phone) || !username.length) && styles.buttonDisabled,
+          ]}
+          disabled={!isValidPhone(phone) || !username.length || loading}
           onPress={handleSendCode}
         >
           <Text style={styles.buttonText}>
@@ -162,7 +187,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: "#222",
-    letterSpacing: 1,
   },
   button: {
     backgroundColor: "#2F51FF",
