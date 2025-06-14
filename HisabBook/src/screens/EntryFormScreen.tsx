@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -21,6 +21,10 @@ import {
   collection,
   addDoc,
   serverTimestamp,
+  doc,
+  updateDoc,
+  setDoc,
+  getDoc,
 } from "@react-native-firebase/firestore";
 import { firestore } from "../../firebaseConfig";
 import auth from "@react-native-firebase/auth";
@@ -32,15 +36,17 @@ const EntryFormScreen = () => {
   const route = useRoute<any>();
   const contact = route.params?.contact || { name: "Junaid", id: "default" };
   const type = route.params?.type || "diye";
+  const transaction = route.params?.transaction; // Get the transaction if it exists
 
-  const [amount, setAmount] = useState("");
-  const [note, setNote] = useState("");
-  const [date, setDate] = useState(new Date());
+  const [amount, setAmount] = useState(transaction?.amount?.toString() || "");
+  const [note, setNote] = useState(transaction?.note || "");
+  const [date, setDate] = useState(transaction?.date || new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageUri, setImageUri] = useState<string | null>(
+    transaction?.imageUri || null
+  );
   const [showCallModal, setShowCallModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  // const [uploadingImage, setUploadingImage] = useState(false);
 
   const formattedDate = date.toLocaleDateString("en-GB", {
     day: "numeric",
@@ -90,7 +96,6 @@ const EntryFormScreen = () => {
 
     try {
       const user = auth().currentUser;
-      console.log("Current user:", user);
       if (!user) {
         Alert.alert("Error", "You must be logged in to save a transaction.");
         setSaving(false);
@@ -109,7 +114,7 @@ const EntryFormScreen = () => {
         contactId: contactId,
         contactName: contact.name,
         contactNumber: contact.number,
-        date: date, // JS Date object
+        date: date,
         type: type,
         amount: parseFloat(amount),
         note: note.trim(),
@@ -118,14 +123,52 @@ const EntryFormScreen = () => {
         userId: user.uid,
       };
 
-      await addDoc(collection(firestore, "transactions"), transactionData);
-
-      Alert.alert("Success", "Transaction saved successfully!", [
-        {
-          text: "OK",
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      if (transaction) {
+        // Update existing transaction
+        await updateDoc(
+          doc(firestore, "transactions", transaction.id),
+          transactionData
+        );
+        // Upsert contact
+        await setDoc(
+          doc(firestore, "contacts", contactId),
+          {
+            name: contact.name,
+            number: contact.number,
+            userId: user.uid,
+            deleted: false,
+            deletedAt: null,
+          },
+          { merge: true }
+        );
+        Alert.alert("Success", "Transaction updated successfully!", [
+          {
+            text: "OK",
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+      } else {
+        // Create new transaction
+        await addDoc(collection(firestore, "transactions"), transactionData);
+        // Upsert contact
+        await setDoc(
+          doc(firestore, "contacts", contactId),
+          {
+            name: contact.name,
+            number: contact.number,
+            userId: user.uid,
+            deleted: false,
+            deletedAt: null,
+          },
+          { merge: true }
+        );
+        Alert.alert("Success", "Transaction saved successfully!", [
+          {
+            text: "OK",
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+      }
     } catch (error) {
       console.error("Error saving transaction:", error);
       Alert.alert("Error", "Failed to save transaction. Please try again.");
@@ -169,9 +212,6 @@ const EntryFormScreen = () => {
               placeholderTextColor="#B0B0B0"
               editable={!saving}
             />
-            {/* <TouchableOpacity style={styles.micBtn}>
-              <Feather name="mic" size={20} color="#2F51FF" />
-            </TouchableOpacity> */}
           </View>
 
           <View style={styles.optionsRow}>
@@ -201,6 +241,7 @@ const EntryFormScreen = () => {
             <TouchableOpacity
               style={styles.optionBtn}
               onPress={handlePickImage}
+              disabled={saving}
             >
               <Ionicons
                 name="camera-outline"
@@ -231,7 +272,9 @@ const EntryFormScreen = () => {
           {saving ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.saveBtnText}>Save</Text>
+            <Text style={styles.saveBtnText}>
+              {transaction ? "Update" : "Save"}
+            </Text>
           )}
         </TouchableOpacity>
       </KeyboardAvoidingView>
