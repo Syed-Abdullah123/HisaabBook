@@ -14,6 +14,7 @@ import ContactHistoryScreen from "../screens/ContactHistoryScreen";
 import AddNewContactScreen from "../screens/AddNewContactScreen";
 import SplashScreen from "../screens/SplashScreen";
 import AllKhaataScreen from "../screens/AllKhaataScreen";
+import DeletedItemsScreen from "../screens/DeletedItemsScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -41,6 +42,7 @@ const AppStack = () => (
     <Stack.Screen name="ContactHistory" component={ContactHistoryScreen} />
     <Stack.Screen name="AddNewContact" component={AddNewContactScreen} />
     <Stack.Screen name="AllKhaataScreen" component={AllKhaataScreen} />
+    <Stack.Screen name="DeletedItems" component={DeletedItemsScreen} />
   </Stack.Navigator>
 );
 
