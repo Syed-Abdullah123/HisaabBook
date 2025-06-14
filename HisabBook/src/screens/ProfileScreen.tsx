@@ -14,6 +14,7 @@ import { AuthContext } from "../context/AuthProvider";
 import SettingListItem from "../components/SettingListItem";
 import CustomProfileModal from "../components/CustomProfileModal";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { auth, firestore } from "../../firebaseConfig";
 import { doc, getDoc, updateDoc } from "@react-native-firebase/firestore";
 
@@ -25,9 +26,11 @@ interface UserData {
   currency: string;
 }
 
+type ProfileScreenNavigationProp = NativeStackNavigationProp<any>;
+
 const ProfileScreen = () => {
   const { user } = useContext(AuthContext);
-  const navigation = useNavigation();
+  const navigation = useNavigation<ProfileScreenNavigationProp>();
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
@@ -223,7 +226,7 @@ const ProfileScreen = () => {
             icon={<Ionicons name="trash-outline" size={22} color="#f59e42" />}
             title="Deleted Items"
             subtitle="Recover deleted customers"
-            onPress={() => {}}
+            onPress={() => navigation.navigate("DeletedItems")}
           />
           <SettingListItem
             icon={
