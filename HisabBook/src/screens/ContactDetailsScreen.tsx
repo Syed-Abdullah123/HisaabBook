@@ -26,6 +26,7 @@ import {
   doc,
   setDoc,
   getDoc,
+  updateDoc,
 } from "@react-native-firebase/firestore";
 import ContactHeader from "../components/ContactHeader";
 import { firestore } from "../../firebaseConfig";
@@ -51,7 +52,11 @@ interface Transaction {
 }
 
 type RootStackParamList = {
-  EntryForm: { contact: Contact; type: "diye" | "liye" };
+  EntryForm: {
+    contact: Contact;
+    type: "diye" | "liye";
+    transaction?: Transaction;
+  };
 };
 
 const ContactDetailsScreen = () => {
@@ -190,7 +195,16 @@ const ContactDetailsScreen = () => {
   };
 
   const renderTransaction = ({ item }: { item: Transaction }) => (
-    <View style={styles.transactionRow}>
+    <TouchableOpacity
+      style={styles.transactionRow}
+      onPress={() =>
+        navigation.navigate("EntryForm", {
+          contact,
+          type: item.type,
+          transaction: item, // Pass the entire transaction object
+        })
+      }
+    >
       <View style={{ flex: 1 }}>
         <Text style={styles.transactionDate}>
           {item.date.toLocaleDateString("en-GB", {
@@ -222,7 +236,7 @@ const ContactDetailsScreen = () => {
           <Text style={styles.transactionEmpty}> </Text>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   if (loading) {
