@@ -12,6 +12,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Modal,
 } from "react-native";
 import auth from "@react-native-firebase/auth";
 import {
@@ -21,6 +22,8 @@ import {
   onSnapshot,
   doc,
   getDoc,
+  updateDoc,
+  doc as firestoreDoc,
 } from "@react-native-firebase/firestore";
 import { firestore } from "../../firebaseConfig";
 import { cleanPhoneNumber } from "../utils/contactUtils";
@@ -47,6 +50,12 @@ const HomeScreen = () => {
   const [userData, setUserData] = useState<UserData>({ businessName: "" });
   const user = auth().currentUser;
   const navigation = useNavigation();
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<KhaataEntry | null>(
+    null
+  );
+  const [contactsMap, setContactsMap] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -72,6 +81,21 @@ const HomeScreen = () => {
 
     fetchBusinessName();
 
+    // Fetch contacts for filtering
+    let contactsMap: Record<string, any> = {};
+    const contactsQ = query(
+      collection(firestore, "contacts"),
+      where("userId", "==", user.uid)
+    );
+    const unsubContacts = onSnapshot(contactsQ, (snapshot) => {
+      contactsMap = {};
+      snapshot.forEach((doc) => {
+        contactsMap[doc.id] = doc.data();
+      });
+      // Trigger a re-render by updating state (if needed)
+      setContactsMap({ ...contactsMap });
+    });
+
     // Fetch transactions
     const q = query(
       collection(firestore, "transactions"),
@@ -91,6 +115,8 @@ const HomeScreen = () => {
           return;
         }
         const contactId = data.contactId;
+        // Only include if not deleted in contacts
+        if (contactsMap[contactId] && contactsMap[contactId].deleted) return;
         if (!grouped[contactId]) {
           grouped[contactId] = {
             contactId,
@@ -107,7 +133,10 @@ const HomeScreen = () => {
       setKhaataList(list);
       setLoading(false);
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubContacts();
+    };
   }, [user]);
 
   // Filtering and Search
@@ -132,6 +161,31 @@ const HomeScreen = () => {
     .filter((c) => c.balance < 0)
     .reduce((sum, c) => sum + Math.abs(c.balance), 0);
 
+  const handleDeletePress = (contact: KhaataEntry) => {
+    setSelectedContact(contact);
+    setDeleteModalVisible(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedContact) return;
+    setDeleting(true);
+    try {
+      // Soft delete contact in Firestore
+      await updateDoc(
+        firestoreDoc(firestore, "contacts", selectedContact.contactId),
+        {
+          deleted: true,
+          deletedAt: new Date(),
+        }
+      );
+    } catch (e) {
+      // Optionally show error
+    }
+    setDeleting(false);
+    setDeleteModalVisible(false);
+    setSelectedContact(null);
+  };
+
   // Render contact row
   const renderContact = ({ item }: { item: KhaataEntry }) => (
     <TouchableOpacity
@@ -142,6 +196,7 @@ const HomeScreen = () => {
           contact: { name: item.contactName, number: item.contactNumber },
         })
       }
+      onLongPress={() => handleDeletePress(item)}
     >
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{item.contactName[0]}</Text>
@@ -305,17 +360,58 @@ const HomeScreen = () => {
           <ActivityIndicator size="small" color="#2F51FF" />
         </View>
       ) : (
-        <FlatList
-          data={filteredList}
-          keyExtractor={(item) => item.contactId}
-          renderItem={renderContact}
-          contentContainerStyle={{ paddingBottom: 120, marginTop: 16 }}
-          ListEmptyComponent={
-            <Text style={{ textAlign: "center", color: "#888", marginTop: 32 }}>
-              No khaata found for this filter.
-            </Text>
-          }
-        />
+        <>
+          <FlatList
+            data={filteredList}
+            keyExtractor={(item) => item.contactId}
+            renderItem={renderContact}
+            contentContainerStyle={{ paddingBottom: 120, marginTop: 16 }}
+            ListEmptyComponent={
+              <Text
+                style={{ textAlign: "center", color: "#888", marginTop: 32 }}
+              >
+                No khaata found for this filter.
+              </Text>
+            }
+          />
+          <Modal visible={deleteModalVisible} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Ionicons
+                  name="trash-outline"
+                  size={36}
+                  color="#F00000"
+                  style={{ alignSelf: "center" }}
+                />
+                <Text style={styles.modalTitle}>Delete this contact?</Text>
+                <Text style={styles.modalDesc}>
+                  This will move the contact to Deleted Items. You can recover
+                  it later from the Deleted Items section.
+                </Text>
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={() => setDeleteModalVisible(false)}
+                    disabled={deleting}
+                  >
+                    <Text style={{ color: "#F00000", fontWeight: "600" }}>
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteConfirmBtn}
+                    onPress={handleDeleteConfirm}
+                    disabled={deleting}
+                  >
+                    <Text style={styles.btnText}>
+                      {deleting ? "Deleting..." : "Delete"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        </>
       )}
     </View>
   );
@@ -503,5 +599,57 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.18)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 28,
+    width: 320,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 12,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  modalDesc: {
+    fontSize: 14,
+    color: "#888",
+    textAlign: "center",
+    marginBottom: 18,
+  },
+  modalActions: {
+    flexDirection: "row",
+    width: "100%",
+    justifyContent: "space-between",
+  },
+  cancelBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#F00000",
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginRight: 8,
+    alignItems: "center",
+  },
+  deleteConfirmBtn: {
+    flex: 1,
+    backgroundColor: "#F00000",
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginLeft: 8,
+    alignItems: "center",
+  },
+  btnText: {
+    color: "#fff",
+    fontWeight: "600",
   },
 });
