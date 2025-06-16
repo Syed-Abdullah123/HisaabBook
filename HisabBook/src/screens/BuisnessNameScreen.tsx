@@ -21,6 +21,7 @@ import { doc, updateDoc } from "@react-native-firebase/firestore";
 type RootStackParamList = {
   Home: undefined;
   BuisnessName: undefined;
+  Tab: undefined;
 };
 
 type BusinessNameScreenNavigationProp = NativeStackNavigationProp<
@@ -145,6 +146,27 @@ const BusinessNameScreen = () => {
     await completeOnboarding();
   };
 
+  const handleSave = async () => {
+    if (!auth.currentUser) return;
+
+    try {
+      const userRef = doc(firestore, "users", auth.currentUser.uid);
+      await updateDoc(userRef, {
+        businessName: name,
+        isOnboardingComplete: true,
+      });
+
+      // Navigate to home screen
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Tab" }],
+      });
+    } catch (error) {
+      console.error("Error saving business name:", error);
+      Alert.alert("Error", "Failed to save business name. Please try again.");
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -168,7 +190,7 @@ const BusinessNameScreen = () => {
       <TouchableOpacity
         style={[styles.button, (!name || loading) && styles.buttonDisabled]}
         disabled={!name || loading}
-        onPress={handleFinish}
+        onPress={handleSave}
       >
         <Text style={styles.buttonText}>
           {loading ? "Saving..." : "Finish"}
