@@ -16,7 +16,20 @@ import CustomProfileModal from "../components/CustomProfileModal";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { auth, firestore } from "../../firebaseConfig";
-import { doc, getDoc, updateDoc } from "@react-native-firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  collection,
+  getDocs,
+  query,
+  where,
+} from "@react-native-firebase/firestore";
+import {
+  PhoneAuthProvider,
+  signInWithCredential,
+} from "@react-native-firebase/auth";
 
 interface UserData {
   username: string;
@@ -24,6 +37,8 @@ interface UserData {
   businessName: string;
   businessType: string;
   currency: string;
+  contacts?: { [key: string]: any };
+  transactions?: { [key: string]: any };
 }
 
 type ProfileScreenNavigationProp = NativeStackNavigationProp<any>;
@@ -39,14 +54,17 @@ const ProfileScreen = () => {
   const [editBusinessModal, setEditBusinessModal] = useState(false);
   const [editTypeModal, setEditTypeModal] = useState(false);
   const [editCurrencyModal, setEditCurrencyModal] = useState(false);
-  const [deleteAccountModal, setDeleteAccountModal] = useState(false);
+  const [signoutModal, setSignoutModal] = useState(false);
+  const [verificationModal, setVerificationModal] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verificationId, setVerificationId] = useState("");
 
   // State for fields
   const [userData, setUserData] = useState<UserData>({
     username: "",
     phoneNumber: "",
     businessName: "",
-    businessType: "General",
+    businessType: "",
     currency: "RS",
   });
 
@@ -79,8 +97,10 @@ const ProfileScreen = () => {
           username: data?.username || "",
           phoneNumber: data?.phoneNumber || "",
           businessName: data?.businessName || "",
-          businessType: data?.businessType || "General",
+          businessType: data?.businessType || "",
           currency: data?.currency || "RS",
+          contacts: data?.contacts,
+          transactions: data?.transactions,
         });
       }
     } catch (error) {
@@ -142,17 +162,71 @@ const ProfileScreen = () => {
     }
   };
 
-  const handleDeleteAccount = async () => {
+  const handleSignout = async () => {
     if (!user) return;
+
     try {
-      await user.delete();
-      Alert.alert("Account Deleted", "Your account has been deleted.");
-      navigation.navigate("Welcome" as never);
-    } catch (error) {
-      console.error("Error deleting account:", error);
-      Alert.alert("Error", "Failed to delete account. Please try again.");
+      // Sign out the user
+      await auth.signOut();
+      console.log("User signed out successfully");
+
+      // Reset navigation state and navigate to Create screen
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Welcome" }],
+      });
+    } catch (error: any) {
+      console.error("Error signing out:", error);
+      Alert.alert("Error", "Failed to sign out. Please try again.");
+    } finally {
+      setSignoutModal(false);
     }
-    setDeleteAccountModal(false);
+  };
+
+  const handleVerificationConfirm = async () => {
+    if (!user || !verificationCode) {
+      Alert.alert("Error", "Verification code is required");
+      return;
+    }
+
+    try {
+      // Create credential with verification code
+      const credential = PhoneAuthProvider.credential(
+        verificationId,
+        verificationCode
+      );
+
+      // Re-authenticate user
+      await signInWithCredential(auth, credential);
+
+      // Delete user data from Firestore
+      await deleteDoc(doc(firestore, "users", user.uid));
+
+      // Delete user account
+      await user.delete();
+
+      Alert.alert(
+        "Account Deleted",
+        "Your account has been successfully deleted.",
+        [
+          {
+            text: "OK",
+            onPress: () => navigation.navigate("Create"),
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error("Error during deletion:", error);
+      if (error.code === "auth/invalid-verification-code") {
+        Alert.alert("Error", "Invalid verification code. Please try again.");
+      } else {
+        Alert.alert("Error", "Failed to delete account. Please try again.");
+      }
+    } finally {
+      setVerificationModal(false);
+      setVerificationCode("");
+      setVerificationId("");
+    }
   };
 
   if (loading) {
@@ -229,12 +303,10 @@ const ProfileScreen = () => {
             onPress={() => navigation.navigate("DeletedItems")}
           />
           <SettingListItem
-            icon={
-              <Ionicons name="close-circle-outline" size={22} color="#f00" />
-            }
-            title="Delete Account"
-            subtitle="Permanently delete your account"
-            onPress={() => setDeleteAccountModal(true)}
+            icon={<Ionicons name="log-out-outline" size={22} color="#f00" />}
+            title="Sign Out"
+            subtitle="Sign out from your account"
+            onPress={() => setSignoutModal(true)}
             showChevron={false}
           />
         </View>
@@ -380,28 +452,66 @@ const ProfileScreen = () => {
         </ScrollView>
       </CustomProfileModal>
 
-      {/* Delete Account Modal */}
+      {/* Sign Out Modal */}
       <CustomProfileModal
-        visible={deleteAccountModal}
-        onClose={() => setDeleteAccountModal(false)}
-        title="Delete Account"
+        visible={signoutModal}
+        onClose={() => setSignoutModal(false)}
+        title="Sign Out"
         actions={[
           {
             label: "Cancel",
-            onPress: () => setDeleteAccountModal(false),
+            onPress: () => setSignoutModal(false),
             type: "secondary",
           },
           {
-            label: "Delete",
-            onPress: handleDeleteAccount,
+            label: "Sign Out",
+            onPress: handleSignout,
             type: "primary",
           },
         ]}
       >
         <Text style={styles.deleteWarning}>
-          Are you sure you want to delete your account? This action cannot be
-          undone.
+          Are you sure you want to sign out? You'll need to sign in again to
+          access your account.
         </Text>
+      </CustomProfileModal>
+
+      <CustomProfileModal
+        visible={verificationModal}
+        onClose={() => {
+          setVerificationModal(false);
+          setVerificationCode("");
+          setVerificationId("");
+        }}
+        title="Verify Phone Number"
+        actions={[
+          {
+            label: "Cancel",
+            onPress: () => {
+              setVerificationModal(false);
+              setVerificationCode("");
+              setVerificationId("");
+            },
+            type: "secondary",
+          },
+          {
+            label: "Delete",
+            onPress: handleVerificationConfirm,
+            type: "primary",
+          },
+        ]}
+      >
+        <Text style={styles.deleteWarning}>
+          Please enter the verification code sent to your phone number
+        </Text>
+        <TextInput
+          style={styles.verificationInput}
+          placeholder="Enter verification code"
+          value={verificationCode}
+          onChangeText={setVerificationCode}
+          keyboardType="number-pad"
+          maxLength={6}
+        />
       </CustomProfileModal>
     </View>
   );
@@ -503,6 +613,14 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     marginBottom: 20,
+  },
+  verificationInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    fontSize: 16,
   },
 });
 
