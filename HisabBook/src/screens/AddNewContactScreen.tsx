@@ -9,25 +9,65 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { collection, addDoc } from "@react-native-firebase/firestore";
+import { firestore } from "../../firebaseConfig";
+import auth from "@react-native-firebase/auth";
+import { cleanPhoneNumber } from "../utils/contactUtils";
 
 const AddNewContactScreen = () => {
   const navigation = useNavigation();
   const [name, setName] = useState("");
   const [number, setNumber] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const isFormValid = name.trim().length > 0 && number.trim().length > 0;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!isFormValid) return;
-    navigation.navigate("ContactDetails", {
-      contact: {
-        name,
-        number,
-      },
-    });
+
+    setSaving(true);
+    try {
+      const user = auth().currentUser;
+      if (!user) {
+        Alert.alert("Error", "Please sign in to add contacts");
+        return;
+      }
+
+      // Clean and validate phone number
+      const cleanedNumber = cleanPhoneNumber(number);
+      if (!cleanedNumber) {
+        Alert.alert("Error", "Please enter a valid phone number");
+        return;
+      }
+
+      // Add contact to Firestore
+      const contactRef = await addDoc(collection(firestore, "contacts"), {
+        name: name.trim(),
+        number: cleanedNumber,
+        userId: user.uid,
+        createdAt: new Date(),
+        deleted: false,
+      });
+
+      // Navigate to contact details with the new contact
+      navigation.navigate("ContactDetails", {
+        contact: {
+          name: name.trim(),
+          number: cleanedNumber,
+          id: contactRef.id,
+        },
+      });
+    } catch (error) {
+      console.error("Error saving contact:", error);
+      Alert.alert("Error", "Failed to save contact. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -66,7 +106,7 @@ const AddNewContactScreen = () => {
           <View style={styles.inputRow}>
             <Text style={styles.flag}>🇵🇰</Text>
             <TextInput
-              style={[styles.input, { flex: 1, borderWidth: 0, marginLeft: 0 }]}
+              style={[styles.input, styles.innerInput]}
               placeholder="Enter contact number"
               value={number}
               onChangeText={setNumber}
@@ -79,10 +119,14 @@ const AddNewContactScreen = () => {
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={[styles.saveBtn, !isFormValid && styles.saveBtnDisabled]}
-            disabled={!isFormValid}
+            disabled={!isFormValid || saving}
             onPress={handleSave}
           >
-            <Text style={styles.saveBtnText}>Contact Save Karein</Text>
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.saveBtnText}>Contact Save Karein</Text>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -157,6 +201,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#222",
     marginBottom: 0,
+  },
+  innerInput: {
+    flex: 1,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    marginLeft: 0,
   },
   inputRow: {
     flexDirection: "row",
