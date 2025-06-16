@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Platform,
   Modal,
+  Linking,
+  Alert,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import {
@@ -194,6 +196,52 @@ const ContactDetailsScreen = () => {
     }
   };
 
+  const handleWhatsApp = () => {
+    const message = `Assalam-o-Alaikum ${
+      contact.name
+    }!\n\nAapka balance Rs.${Math.abs(balance)} ${
+      balanceType === "lene hain" ? "mujhe dene hain" : "mujhe lene hain"
+    }.\n\nMehrbani farma kar is ka hisab barabar kar dein. Shukriya!`;
+    const whatsappUrl = `whatsapp://send?phone=${
+      contact.number
+    }&text=${encodeURIComponent(message)}`;
+
+    Linking.canOpenURL(whatsappUrl)
+      .then((supported) => {
+        if (supported) {
+          return Linking.openURL(whatsappUrl);
+        } else {
+          Alert.alert("Error", "WhatsApp is not installed on your device");
+        }
+      })
+      .catch((err) => {
+        console.error("Error opening WhatsApp:", err);
+        Alert.alert("Error", "Could not open WhatsApp");
+      });
+  };
+
+  const handleSMS = () => {
+    const message = `Assalam-o-Alaikum ${
+      contact.name
+    }!\n\nAapka balance Rs.${Math.abs(balance)} ${
+      balanceType === "lene hain" ? "mujhe dene hain" : "mujhe lene hain"
+    }.\n\nMehrbani farma kar is ka hisab barabar kar dein. Shukriya!`;
+    const smsUrl = `sms:${contact.number}?body=${encodeURIComponent(message)}`;
+
+    Linking.canOpenURL(smsUrl)
+      .then((supported) => {
+        if (supported) {
+          return Linking.openURL(smsUrl);
+        } else {
+          Alert.alert("Error", "Could not open SMS app");
+        }
+      })
+      .catch((err) => {
+        console.error("Error opening SMS:", err);
+        Alert.alert("Error", "Could not open SMS app");
+      });
+  };
+
   const renderTransaction = ({ item }: { item: Transaction }) => (
     <TouchableOpacity
       style={styles.transactionRow}
@@ -291,19 +339,9 @@ const ContactDetailsScreen = () => {
         </View>
         <View style={styles.balanceRightColumn}>
           <TouchableOpacity
-            style={[styles.balanceActionBtnCol, { marginTop: 0 }]}
+            style={styles.balanceActionBtnCol}
+            onPress={handleSMS}
           >
-            <Ionicons
-              name="document-text-outline"
-              size={18}
-              color="#F00000"
-              style={{ marginRight: 6 }}
-            />
-            <Text style={[styles.balanceActionTextCol, { color: "#F00000" }]}>
-              Report
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.balanceActionBtnCol}>
             <Ionicons
               name="chatbubble-ellipses-outline"
               size={18}
@@ -314,7 +352,10 @@ const ContactDetailsScreen = () => {
               SMS
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.balanceActionBtnCol}>
+          <TouchableOpacity
+            style={styles.balanceActionBtnCol}
+            onPress={handleWhatsApp}
+          >
             <Ionicons
               name="logo-whatsapp"
               size={18}
