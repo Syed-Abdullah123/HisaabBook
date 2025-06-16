@@ -126,8 +126,11 @@ const AllKhaataScreen = () => {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
       {/* Header */}
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={28} color="#222" />
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="chevron-back" size={24} color="#222" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Sare Contacts ki Report</Text>
         <View style={{ width: 28 }}>
@@ -247,9 +250,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 38,
     paddingBottom: 8,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
   },
   headerTitle: {
     flex: 1,
