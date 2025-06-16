@@ -1,5 +1,5 @@
 import { Ionicons, EvilIcons } from "@expo/vector-icons";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -56,88 +56,134 @@ const HomeScreen = () => {
     null
   );
   const [contactsMap, setContactsMap] = useState<Record<string, any>>({});
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
+  // Separate effect for business name updates
   useEffect(() => {
     if (!user) return;
-    setLoading(true);
 
-    // Fetch business name
-    const fetchBusinessName = async () => {
-      try {
-        const userDoc = await getDoc(doc(firestore, "users", user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data() as UserData;
-          setUserData({
-            businessName: data?.businessName || "",
-          });
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-        Alert.alert("Error", "Failed to load user data");
-      } finally {
-        setLoading(false);
+    const userDocRef = doc(firestore, "users", user.uid);
+    const unsubUser = onSnapshot(userDocRef, (doc) => {
+      if (!doc.exists()) {
+        setUserData({ businessName: "" });
+        return;
       }
+      const data = doc.data() as UserData;
+      setUserData({
+        businessName: data?.businessName || "",
+      });
+    });
+
+    return () => {
+      unsubUser();
+      setUserData({ businessName: "" });
     };
+  }, [user?.uid]);
 
-    fetchBusinessName();
+  // Separate effect for contacts updates
+  useEffect(() => {
+    if (!user) return;
 
-    // Fetch contacts for filtering
-    let contactsMap: Record<string, any> = {};
     const contactsQ = query(
       collection(firestore, "contacts"),
       where("userId", "==", user.uid)
     );
     const unsubContacts = onSnapshot(contactsQ, (snapshot) => {
-      contactsMap = {};
+      if (!snapshot) {
+        setContactsMap({});
+        return;
+      }
+      const newContactsMap: Record<string, any> = {};
       snapshot.forEach((doc) => {
-        contactsMap[doc.id] = doc.data();
+        if (doc.exists()) {
+          newContactsMap[doc.id] = doc.data();
+        }
       });
-      // Trigger a re-render by updating state (if needed)
-      setContactsMap({ ...contactsMap });
+      setContactsMap(newContactsMap);
     });
 
-    // Fetch transactions
-    const q = query(
-      collection(firestore, "transactions"),
-      where("userId", "==", user.uid)
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const grouped: { [contactId: string]: KhaataEntry } = {};
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (
-          !data ||
-          !data.contactId ||
-          !data.contactName ||
-          !data.contactNumber
-        ) {
-          // Skip malformed data
-          return;
-        }
-        const contactId = data.contactId;
-        // Only include if not deleted in contacts
-        if (contactsMap[contactId] && contactsMap[contactId].deleted) return;
-        if (!grouped[contactId]) {
-          grouped[contactId] = {
-            contactId,
-            contactName: data.contactName,
-            contactNumber: data.contactNumber,
-            balance: 0,
-          };
-        }
-        grouped[contactId].balance +=
-          data.type === "diye" ? data.amount : -data.amount;
-      });
-      // Only show contacts with non-zero balance
-      const list = Object.values(grouped).filter((c) => c.balance !== 0);
-      setKhaataList(list);
-      setLoading(false);
-    });
     return () => {
-      unsubscribe();
       unsubContacts();
+      setContactsMap({});
     };
-  }, [user]);
+  }, [user?.uid]);
+
+  // Separate effect for transactions updates
+  useEffect(() => {
+    if (!user) return;
+
+    let isMounted = true;
+    const loadTransactions = async () => {
+      try {
+        const transactionsQ = query(
+          collection(firestore, "transactions"),
+          where("userId", "==", user.uid)
+        );
+        const unsubTransactions = onSnapshot(transactionsQ, (snapshot) => {
+          if (!isMounted) return;
+          if (!snapshot) {
+            setKhaataList([]);
+            setLoading(false);
+            return;
+          }
+
+          const grouped: { [contactId: string]: KhaataEntry } = {};
+
+          snapshot.forEach((doc) => {
+            if (!doc.exists()) return;
+            const data = doc.data();
+            if (!data?.contactId || !data?.contactName || !data?.contactNumber)
+              return;
+
+            const contactId = data.contactId;
+            // Skip if contact is deleted
+            if (contactsMap[contactId]?.deleted) return;
+
+            if (!grouped[contactId]) {
+              grouped[contactId] = {
+                contactId,
+                contactName: data.contactName,
+                contactNumber: data.contactNumber,
+                balance: 0,
+              };
+            }
+            grouped[contactId].balance +=
+              data.type === "diye" ? data.amount : -data.amount;
+          });
+
+          // Filter out deleted contacts and zero balances
+          const list = Object.values(grouped).filter((c) => {
+            const contact = contactsMap[c.contactId];
+            return !contact?.deleted && c.balance !== 0;
+          });
+
+          setKhaataList(list);
+          if (!initialLoadComplete) {
+            setInitialLoadComplete(true);
+            setLoading(false);
+          }
+        });
+
+        return () => {
+          isMounted = false;
+          unsubTransactions();
+          setKhaataList([]);
+          setLoading(false);
+        };
+      } catch (error) {
+        console.error("Error loading transactions:", error);
+        if (isMounted) {
+          setLoading(false);
+          Alert.alert(
+            "Error",
+            "Failed to load transactions. Please try again."
+          );
+        }
+      }
+    };
+
+    loadTransactions();
+  }, [user?.uid, contactsMap, initialLoadComplete]);
 
   // Filtering and Search
   const filteredList = khaataList.filter((c) => {
@@ -170,20 +216,20 @@ const HomeScreen = () => {
     if (!selectedContact) return;
     setDeleting(true);
     try {
-      // Soft delete contact in Firestore
-      await updateDoc(
-        firestoreDoc(firestore, "contacts", selectedContact.contactId),
-        {
-          deleted: true,
-          deletedAt: new Date(),
-        }
-      );
-    } catch (e) {
-      // Optionally show error
+      const contactRef = doc(firestore, "contacts", selectedContact.contactId);
+      await updateDoc(contactRef, {
+        deleted: true,
+        deletedAt: new Date(),
+      });
+      // The onSnapshot listener will automatically update the UI
+    } catch (error) {
+      console.error("Error deleting contact:", error);
+      Alert.alert("Error", "Failed to delete contact. Please try again.");
+    } finally {
+      setDeleting(false);
+      setDeleteModalVisible(false);
+      setSelectedContact(null);
     }
-    setDeleting(false);
-    setDeleteModalVisible(false);
-    setSelectedContact(null);
   };
 
   // Render contact row
