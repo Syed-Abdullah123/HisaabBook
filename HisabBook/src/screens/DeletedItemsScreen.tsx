@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   Modal,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import ContactHeader from "../components/ContactHeader";
@@ -21,6 +22,7 @@ import {
 } from "@react-native-firebase/firestore";
 import { firestore } from "../../firebaseConfig";
 import auth from "@react-native-firebase/auth";
+import { useNavigation } from "@react-navigation/native";
 
 interface DeletedContact {
   id: string;
@@ -43,25 +45,35 @@ const DeletedItemsScreen = () => {
   );
   const [recovering, setRecovering] = useState(false);
   const [loading, setLoading] = useState(true);
+  const navigation = useNavigation();
 
   useEffect(() => {
     const user = auth().currentUser;
     if (!user) return;
     setLoading(true);
+
+    // Real-time deleted contacts updates
     const q = query(
       collection(firestore, "contacts"),
       where("userId", "==", user.uid),
       where("deleted", "==", true)
     );
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list: any[] = [];
+      const list: DeletedContact[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
-        list.push({ id: doc.id, ...data });
+        list.push({
+          id: doc.id,
+          name: data.name || "",
+          number: data.number || "",
+          deletedAt: data.deletedAt,
+        });
       });
       setDeletedContacts(list);
       setLoading(false);
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -74,21 +86,33 @@ const DeletedItemsScreen = () => {
     if (!selectedContact) return;
     setRecovering(true);
     try {
-      await updateDoc(doc(firestore, "contacts", selectedContact.id), {
+      const contactRef = doc(firestore, "contacts", selectedContact.id);
+      await updateDoc(contactRef, {
         deleted: false,
         deletedAt: null,
       });
-    } catch (e) {
-      // Optionally show error
+      // The onSnapshot listener will automatically update the UI
+    } catch (error) {
+      console.error("Error recovering contact:", error);
+      Alert.alert("Error", "Failed to recover contact. Please try again.");
+    } finally {
+      setRecovering(false);
+      setModalVisible(false);
+      setSelectedContact(null);
     }
-    setRecovering(false);
-    setModalVisible(false);
-    setSelectedContact(null);
   };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
-      <ContactHeader name="Deleted Items" number="" onBackPress={() => {}} />
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="chevron-back" size={24} color="black" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Deleted Items</Text>
+      </View>
       <View style={styles.container}>
         <Text style={styles.title}>Deleted items recover karein.</Text>
         <Text style={styles.subtitle}>Items Deleting in 30 Days</Text>
@@ -115,9 +139,9 @@ const DeletedItemsScreen = () => {
           )}
         />
       </View>
-      <TouchableOpacity style={styles.saveBtn}>
+      {/* <TouchableOpacity style={styles.saveBtn}>
         <Text style={styles.saveBtnText}>Save Karien</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
       <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -160,6 +184,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 24,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 38,
+    paddingHorizontal: 24,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "bold",
+    textAlign: "center",
   },
   title: {
     fontSize: 16,
@@ -257,14 +293,14 @@ const styles = StyleSheet.create({
   cancelBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#F00000",
+    borderColor: "#2F51FF",
     borderRadius: 10,
     paddingVertical: 12,
     marginRight: 8,
     alignItems: "center",
   },
   cancelBtnText: {
-    color: "#F00000",
+    color: "#2F51FF",
     fontWeight: "600",
   },
   recoverConfirmBtn: {
