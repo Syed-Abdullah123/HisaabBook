@@ -1,17 +1,20 @@
 import React, { createContext, useEffect, useState, ReactNode } from "react";
 import auth from "@react-native-firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import firestore from "@react-native-firebase/firestore";
 
 type AuthContextType = {
   user: any;
   isOnboardingComplete: boolean;
   completeOnboarding: () => Promise<void>;
+  signOut: () => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
   isOnboardingComplete: false,
   completeOnboarding: async () => {},
+  signOut: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -26,10 +29,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (usr) {
         // Check if onboarding is complete for this user
         try {
-          const onboardingStatus = await AsyncStorage.getItem(
-            `onboarding_${usr.uid}`
+          const userDoc = await firestore()
+            .collection("users")
+            .doc(usr.uid)
+            .get();
+          const userData = userDoc.data();
+
+          // Check if business name is set
+          const hasBusinessName =
+            userData?.businessName && userData.businessName.trim() !== "";
+
+          // Set onboarding status based on business name
+          setIsOnboardingComplete(hasBusinessName);
+
+          // Update AsyncStorage to match
+          await AsyncStorage.setItem(
+            `onboarding_${usr.uid}`,
+            hasBusinessName ? "complete" : "incomplete"
           );
-          setIsOnboardingComplete(onboardingStatus === "complete");
         } catch (error) {
           console.error("Error checking onboarding status:", error);
           setIsOnboardingComplete(false);
@@ -55,11 +72,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  if (initializing) return null; // Or return a Splash Screen
+  const signOut = async () => {
+    try {
+      // Set sign-out flag before signing out
+      await AsyncStorage.setItem("isSignOut", "true");
+
+      await auth().signOut();
+      // Clear any stored onboarding status
+      if (user) {
+        await AsyncStorage.removeItem(`onboarding_${user.uid}`);
+      }
+      setUser(null);
+      setIsOnboardingComplete(false);
+    } catch (error) {
+      console.error("Error signing out:", error);
+      throw error;
+    }
+  };
+
+  if (initializing) return null;
 
   return (
     <AuthContext.Provider
-      value={{ user, isOnboardingComplete, completeOnboarding }}
+      value={{ user, isOnboardingComplete, completeOnboarding, signOut }}
     >
       {children}
     </AuthContext.Provider>
