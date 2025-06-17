@@ -29,27 +29,35 @@ const AuthStack = () => (
   </Stack.Navigator>
 );
 
-// Main App Stack Navigator (includes both onboarding and main app screens)
-const AppStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen name="BuisnessName" component={BuisnessNameScreen} />
-    <Stack.Screen name="Tab" component={TabNavigator} />
-    <Stack.Screen name="ContactDetails" component={ContactDetailsScreen} />
-    <Stack.Screen name="EntryForm" component={EntryFormScreen} />
-    <Stack.Screen name="ContactHistory" component={ContactHistoryScreen} />
-    <Stack.Screen name="AddNewContact" component={AddNewContactScreen} />
-    <Stack.Screen name="AllKhaataScreen" component={AllKhaataScreen} />
-    <Stack.Screen name="DeletedItems" component={DeletedItemsScreen} />
-  </Stack.Navigator>
-);
-
 // Main Navigator
 const MainNavigator = () => {
   const { user, isOnboardingComplete } = useContext(AuthContext);
 
   return (
     <NavigationContainer>
-      {!user ? <AuthStack /> : <AppStack />}
+      {!user ? (
+        <AuthStack />
+      ) : !isOnboardingComplete ? (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="BuisnessName" component={BuisnessNameScreen} />
+        </Stack.Navigator>
+      ) : (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Tab" component={TabNavigator} />
+          <Stack.Screen
+            name="ContactDetails"
+            component={ContactDetailsScreen}
+          />
+          <Stack.Screen name="EntryForm" component={EntryFormScreen} />
+          <Stack.Screen
+            name="ContactHistory"
+            component={ContactHistoryScreen}
+          />
+          <Stack.Screen name="AddNewContact" component={AddNewContactScreen} />
+          <Stack.Screen name="AllKhaataScreen" component={AllKhaataScreen} />
+          <Stack.Screen name="DeletedItems" component={DeletedItemsScreen} />
+        </Stack.Navigator>
+      )}
     </NavigationContainer>
   );
 };
