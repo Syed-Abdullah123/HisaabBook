@@ -19,7 +19,7 @@ import {
   clearConfirmationResult,
 } from "../utils/authState";
 import { AuthContext } from "../context/AuthProvider";
-import { doc, setDoc } from "@react-native-firebase/firestore";
+import { doc, setDoc, getDoc } from "@react-native-firebase/firestore";
 import { firestore } from "../../firebaseConfig";
 
 const OTP_LENGTH = 6;
@@ -31,13 +31,13 @@ type RootStackParamList = {
     username: string;
   };
   BuisnessName: undefined;
+  Tab: undefined;
+  Welcome: undefined;
+  Create: undefined;
 };
 
 type OtpScreenRouteProp = RouteProp<RootStackParamList, "Otp">;
-type OtpScreenNavigationProp = NativeStackNavigationProp<
-  RootStackParamList,
-  "Otp"
->;
+type OtpScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const OtpScreen = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -96,25 +96,61 @@ const OtpScreen = () => {
       const result = await confirmation.confirm(otpString);
       const user = result?.user;
 
-      // Create user document in Firestore
-      await setDoc(doc(firestore, "users", user?.uid || ""), {
-        uid: user?.uid || "",
-        phoneNumber: phone,
-        username: username,
-        createdAt: new Date(),
-        businessName: "",
-        businessType: "General",
-        currency: "RS",
-      });
+      if (!user) {
+        throw new Error("Failed to create user account");
+      }
+
+      // Check if user document already exists
+      const userDoc = await getDoc(doc(firestore, "users", user.uid));
+
+      if (!userDoc.exists()) {
+        // Create new user document if it doesn't exist
+        await setDoc(doc(firestore, "users", user.uid), {
+          uid: user.uid,
+          phoneNumber: phone,
+          username: username,
+          createdAt: new Date(),
+          businessName: "",
+          businessType: "General",
+          currency: "RS",
+        });
+
+        // Navigate to BusinessName screen for new users
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "BuisnessName" }],
+        });
+      } else {
+        // For existing users, update username if changed
+        const userData = userDoc.data();
+        if (userData?.username !== username) {
+          await setDoc(
+            doc(firestore, "users", user.uid),
+            {
+              ...userData,
+              username: username,
+              updatedAt: new Date(),
+            },
+            { merge: true }
+          );
+        }
+
+        // For existing users, we should go back to the root and let AuthProvider handle the navigation
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "Welcome" }],
+        });
+      }
 
       clearConfirmationResult(); // Clear the confirmation after successful verification
-
-      // Don't manually navigate - let AuthProvider handle the state change
-      // The user will automatically be moved to OnboardingStack (BuisnessName screen)
-      setLoading(false);
     } catch (error: any) {
+      console.error("Error during verification:", error);
+      Alert.alert(
+        "Error",
+        error.message || "Failed to verify code. Please try again."
+      );
+    } finally {
       setLoading(false);
-      Alert.alert("Error", error.message);
     }
   };
 
