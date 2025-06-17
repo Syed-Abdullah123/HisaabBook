@@ -175,52 +175,6 @@ const ProfileScreen = () => {
     }
   };
 
-  const handleVerificationConfirm = async () => {
-    if (!user || !verificationCode) {
-      Alert.alert("Error", "Verification code is required");
-      return;
-    }
-
-    try {
-      // Create credential with verification code
-      const credential = PhoneAuthProvider.credential(
-        verificationId,
-        verificationCode
-      );
-
-      // Re-authenticate user
-      await signInWithCredential(auth, credential);
-
-      // Delete user data from Firestore
-      await deleteDoc(doc(firestore, "users", user.uid));
-
-      // Delete user account
-      await user.delete();
-
-      Alert.alert(
-        "Account Deleted",
-        "Your account has been successfully deleted.",
-        [
-          {
-            text: "OK",
-            onPress: () => navigation.navigate("Create"),
-          },
-        ]
-      );
-    } catch (error: any) {
-      console.error("Error during deletion:", error);
-      if (error.code === "auth/invalid-verification-code") {
-        Alert.alert("Error", "Invalid verification code. Please try again.");
-      } else {
-        Alert.alert("Error", "Failed to delete account. Please try again.");
-      }
-    } finally {
-      setVerificationModal(false);
-      setVerificationCode("");
-      setVerificationId("");
-    }
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
