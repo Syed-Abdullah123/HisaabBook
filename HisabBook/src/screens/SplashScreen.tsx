@@ -8,11 +8,20 @@ import {
   Text,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
 
+type RootStackParamList = {
+  Welcome: undefined;
+  Create: undefined;
+};
+
+type SplashScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
 export default function AnimatedSplashScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<SplashScreenNavigationProp>();
   // Animations
   const centerBarScale = useRef(new Animated.Value(width / 80)).current; // Start as wide as screen
   const leftX = useRef(new Animated.Value(-width)).current;
@@ -48,12 +57,28 @@ export default function AnimatedSplashScreen() {
       }),
     ]).start();
 
-    // Always navigate after 3 seconds
-    const timeout = setTimeout(() => {
-      navigation.navigate("Welcome"); // or navigation.navigate('Welcome')
-    }, 3000);
+    // Check if this is a sign-out case
+    const checkNavigation = async () => {
+      const isSignOut = await AsyncStorage.getItem("isSignOut");
 
-    return () => clearTimeout(timeout);
+      // Always navigate after 3 seconds
+      setTimeout(() => {
+        if (isSignOut === "true") {
+          // If it's a sign-out, go directly to Create screen
+          navigation.reset({
+            index: 0,
+            routes: [{ name: "Create" }],
+          });
+          // Clear the sign-out flag
+          AsyncStorage.removeItem("isSignOut");
+        } else {
+          // Normal flow - go to Welcome screen
+          navigation.navigate("Welcome");
+        }
+      }, 3000);
+    };
+
+    checkNavigation();
   }, []);
 
   return (
