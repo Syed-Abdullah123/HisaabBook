@@ -467,44 +467,6 @@ const ProfileScreen = () => {
           access your account.
         </Text>
       </CustomProfileModal>
-
-      <CustomProfileModal
-        visible={verificationModal}
-        onClose={() => {
-          setVerificationModal(false);
-          setVerificationCode("");
-          setVerificationId("");
-        }}
-        title="Verify Phone Number"
-        actions={[
-          {
-            label: "Cancel",
-            onPress: () => {
-              setVerificationModal(false);
-              setVerificationCode("");
-              setVerificationId("");
-            },
-            type: "secondary",
-          },
-          {
-            label: "Delete",
-            onPress: handleVerificationConfirm,
-            type: "primary",
-          },
-        ]}
-      >
-        <Text style={styles.deleteWarning}>
-          Please enter the verification code sent to your phone number
-        </Text>
-        <TextInput
-          style={styles.verificationInput}
-          placeholder="Enter verification code"
-          value={verificationCode}
-          onChangeText={setVerificationCode}
-          keyboardType="number-pad"
-          maxLength={6}
-        />
-      </CustomProfileModal>
     </View>
   );
 };
