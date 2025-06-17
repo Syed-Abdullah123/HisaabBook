@@ -44,7 +44,7 @@ interface UserData {
 type ProfileScreenNavigationProp = NativeStackNavigationProp<any>;
 
 const ProfileScreen = () => {
-  const { user } = useContext(AuthContext);
+  const { user, signOut } = useContext(AuthContext);
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -163,18 +163,10 @@ const ProfileScreen = () => {
   };
 
   const handleSignout = async () => {
-    if (!user) return;
-
     try {
-      // Sign out the user
-      await auth.signOut();
-      console.log("User signed out successfully");
-
-      // Reset navigation state and navigate to Create screen
-      navigation.reset({
-        index: 0,
-        routes: [{ name: "Welcome" }],
-      });
+      await signOut();
+      // No need to navigate manually - the MainNavigator will handle this
+      // based on the user state change
     } catch (error: any) {
       console.error("Error signing out:", error);
       Alert.alert("Error", "Failed to sign out. Please try again.");
