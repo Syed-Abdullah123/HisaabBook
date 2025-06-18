@@ -5,10 +5,13 @@ import AddContact from "../screens/AddContactScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import { Ionicons } from "@expo/vector-icons";
 import { View, StyleSheet, Pressable } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const Tab = createBottomTabNavigator();
 
 const TabNavigator = () => {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -16,8 +19,9 @@ const TabNavigator = () => {
         tabBarActiveTintColor: "#2F51FF",
         tabBarInactiveTintColor: "#888",
         tabBarStyle: {
-          paddingBottom: 15,
-          height: 60,
+          // paddingBottom: 15 + Math.max(insets.bottom, 0),
+          height: 55 + Math.max(insets.bottom, 0),
+          backgroundColor: "#fff",
         },
         tabBarItemStyle: {
           backgroundColor: "transparent",
