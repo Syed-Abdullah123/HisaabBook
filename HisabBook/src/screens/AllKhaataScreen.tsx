@@ -5,12 +5,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   FlatList,
-  SafeAreaView,
   Platform,
   LogBox,
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import auth from "@react-native-firebase/auth";
 import {
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 18,
-    paddingTop: 38,
+    paddingTop: 18,
     paddingBottom: 8,
   },
   headerTitle: {
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 18,
     right: 18,
-    bottom: 24,
+    bottom: 50,
     flexDirection: "row",
     gap: 12,
   },

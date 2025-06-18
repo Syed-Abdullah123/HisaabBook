@@ -16,6 +16,7 @@ import Animated, {
   withSequence,
   withDelay,
 } from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -113,7 +114,7 @@ const WelcomeScreen: React.FC = () => {
   const currentContent = stories[currentStory];
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Top Gradient */}
       <LinearGradient
         colors={["rgba(0,0,0,0.9)", "rgba(0,0,0,0.9)", "transparent"]}
@@ -186,7 +187,7 @@ const WelcomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </LinearGradient>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -208,7 +209,7 @@ const styles = StyleSheet.create({
   progressBarsContainer: {
     flexDirection: "row",
     paddingHorizontal: 16,
-    paddingTop: 50,
+    paddingTop: 20,
     gap: 8,
     zIndex: 2,
   },
@@ -237,7 +238,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingBottom: 20,
+    paddingBottom: 60,
     paddingTop: 60,
   },
   bottomContent: {

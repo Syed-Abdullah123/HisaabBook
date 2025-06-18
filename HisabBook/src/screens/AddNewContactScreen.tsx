@@ -71,7 +71,7 @@ const AddNewContactScreen = () => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+    <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -137,6 +137,11 @@ const AddNewContactScreen = () => {
 export default AddNewContactScreen;
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+    paddingBottom: 50,
+  },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",

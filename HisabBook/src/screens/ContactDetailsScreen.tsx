@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    // marginTop: 16,
+    marginBottom: 40,
   },
   illustration: {
     width: 200,
@@ -704,7 +704,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 24,
     right: 24,
-    bottom: 24,
+    bottom: 60,
     flexDirection: "row",
     gap: 12,
   },
