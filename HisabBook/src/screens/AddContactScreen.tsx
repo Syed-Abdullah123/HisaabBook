@@ -10,7 +10,6 @@ import {
   Platform,
   KeyboardAvoidingView,
   ActivityIndicator,
-  PermissionsAndroid,
 } from "react-native";
 import * as Contacts from "expo-contacts";
 import { useNavigation } from "@react-navigation/native";
@@ -23,7 +22,6 @@ const AddContact = () => {
   const [contacts, setContacts] = useState<any[]>([]);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [offset, setOffset] = useState(0);
 
   const navigation = useNavigation();
