@@ -7,11 +7,9 @@ import {
   StyleSheet,
   SafeAreaView,
   Modal,
-  ActivityIndicator,
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import ContactHeader from "../components/ContactHeader";
 import {
   collection,
   query,
@@ -30,12 +28,6 @@ interface DeletedContact {
   number: string;
   deletedAt?: any;
 }
-
-const DUMMY_DELETED_CONTACTS = [
-  { id: "1", name: "Junaid", number: "04235678901" },
-  { id: "2", name: "Liam", number: "05567891234" },
-  { id: "3", name: "Maya", number: "06678912345" },
-];
 
 const DeletedItemsScreen = () => {
   const [modalVisible, setModalVisible] = useState(false);
@@ -139,9 +131,7 @@ const DeletedItemsScreen = () => {
           )}
         />
       </View>
-      {/* <TouchableOpacity style={styles.saveBtn}>
-        <Text style={styles.saveBtnText}>Save Karien</Text>
-      </TouchableOpacity> */}
+      {/* Modal for recovering contact */}
       <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
