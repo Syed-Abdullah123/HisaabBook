@@ -11,14 +11,9 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Ionicons } from "@expo/vector-icons";
-import { auth, firestore } from "../../firebaseConfig";
-import {
-  signInWithPhoneNumber,
-  onAuthStateChanged,
-} from "@react-native-firebase/auth";
+import { auth } from "../../firebaseConfig";
+import { signInWithPhoneNumber } from "@react-native-firebase/auth";
 import { setConfirmationResult } from "../utils/authState";
-import { doc, setDoc } from "@react-native-firebase/firestore";
 
 interface CreateAccountScreenProps {
   navigation: NativeStackNavigationProp<any>;
