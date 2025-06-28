@@ -14,11 +14,7 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
-import {
-  useNavigation,
-  useRoute,
-  useFocusEffect,
-} from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import {
   collection,
   query,
@@ -28,7 +24,6 @@ import {
   doc,
   setDoc,
   getDoc,
-  updateDoc,
 } from "@react-native-firebase/firestore";
 import ContactHeader from "../components/ContactHeader";
 import { firestore } from "../../firebaseConfig";
@@ -52,14 +47,6 @@ interface Transaction {
   imageUri?: string;
   createdAt: Date;
 }
-
-type RootStackParamList = {
-  EntryForm: {
-    contact: Contact;
-    type: "diye" | "liye";
-    transaction?: Transaction;
-  };
-};
 
 const ContactDetailsScreen = () => {
   const navigation = useNavigation<any>();
@@ -544,9 +531,9 @@ const ContactDetailsScreen = () => {
               setShowDatePicker(false);
               if (date) {
                 setCustomWasooliDate(date);
-                setWasooliDate(date); // set the main date
-                setSelectedWasooliOption(null); // Deselect quick options
-                setShowWasooliModal(false); // close modal
+                setWasooliDate(date);
+                setSelectedWasooliOption(null);
+                setShowWasooliModal(false);
                 saveWasooliDate(date);
               }
             }}
