@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   StyleSheet,
   Platform,
-  Modal,
   KeyboardAvoidingView,
   Alert,
   ActivityIndicator,
@@ -16,7 +15,7 @@ import {
 import { useNavigation, useRoute } from "@react-navigation/native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import {
   collection,
   addDoc,
@@ -24,7 +23,6 @@ import {
   doc,
   updateDoc,
   setDoc,
-  getDoc,
 } from "@react-native-firebase/firestore";
 import { firestore } from "../../firebaseConfig";
 import auth from "@react-native-firebase/auth";
@@ -45,7 +43,6 @@ const EntryFormScreen = () => {
   const [imageUri, setImageUri] = useState<string | null>(
     transaction?.imageUri || null
   );
-  const [showCallModal, setShowCallModal] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const formattedDate = date.toLocaleDateString("en-GB", {
