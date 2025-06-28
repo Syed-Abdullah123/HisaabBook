@@ -15,21 +15,8 @@ import SettingListItem from "../components/SettingListItem";
 import CustomProfileModal from "../components/CustomProfileModal";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { auth, firestore } from "../../firebaseConfig";
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  deleteDoc,
-  collection,
-  getDocs,
-  query,
-  where,
-} from "@react-native-firebase/firestore";
-import {
-  PhoneAuthProvider,
-  signInWithCredential,
-} from "@react-native-firebase/auth";
+import { firestore } from "../../firebaseConfig";
+import { doc, getDoc, updateDoc } from "@react-native-firebase/firestore";
 
 interface UserData {
   username: string;
@@ -55,9 +42,6 @@ const ProfileScreen = () => {
   const [editTypeModal, setEditTypeModal] = useState(false);
   const [editCurrencyModal, setEditCurrencyModal] = useState(false);
   const [signoutModal, setSignoutModal] = useState(false);
-  const [verificationModal, setVerificationModal] = useState(false);
-  const [verificationCode, setVerificationCode] = useState("");
-  const [verificationId, setVerificationId] = useState("");
 
   // State for fields
   const [userData, setUserData] = useState<UserData>({
