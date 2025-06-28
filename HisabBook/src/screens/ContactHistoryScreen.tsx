@@ -45,7 +45,7 @@ const ContactHistoryScreen = () => {
 
   // Calculate balance and main color
   const balance = 3500;
-  const balanceType = "lene hain"; // or "dene hain"
+  const balanceType = "lene hain";
 
   const renderTransaction = ({
     item,
