@@ -8,7 +8,6 @@ import {
   Image,
   FlatList,
   Dimensions,
-  Pressable,
   TextInput,
   ActivityIndicator,
   Alert,
@@ -21,15 +20,10 @@ import {
   where,
   onSnapshot,
   doc,
-  getDoc,
   updateDoc,
-  doc as firestoreDoc,
 } from "@react-native-firebase/firestore";
 import { firestore } from "../../firebaseConfig";
-import { cleanPhoneNumber } from "../utils/contactUtils";
 import { useNavigation } from "@react-navigation/native";
-
-const { width, height } = Dimensions.get("window");
 
 type KhaataEntry = {
   contactId: string;
@@ -331,9 +325,6 @@ const HomeScreen = () => {
           </Text>
         </TouchableOpacity>
         <View style={styles.topIcons}>
-          {/* <TouchableOpacity>
-            <EvilIcons name="refresh" size={32} color="black" />
-          </TouchableOpacity> */}
           <TouchableOpacity
             style={styles.pdfBtn}
             onPress={() => navigation.navigate("AllKhaataScreen" as never)}
@@ -480,10 +471,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   dropdown: {
-    // flexDirection: "row",
     alignItems: "center",
-    // backgroundColor: "#F5F6FA",
-    // borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 6,
     gap: 4,
