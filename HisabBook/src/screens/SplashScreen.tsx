@@ -1,12 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import {
-  View,
-  Animated,
-  StyleSheet,
-  Dimensions,
-  Image,
-  Text,
-} from "react-native";
+import { View, Animated, StyleSheet, Dimensions } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
