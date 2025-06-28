@@ -18,12 +18,10 @@ import {
   getConfirmationResult,
   clearConfirmationResult,
 } from "../utils/authState";
-import { AuthContext } from "../context/AuthProvider";
 import { doc, setDoc, getDoc } from "@react-native-firebase/firestore";
 import { firestore } from "../../firebaseConfig";
 
 const OTP_LENGTH = 6;
-const RESEND_SECONDS = 25;
 
 type RootStackParamList = {
   Otp: {
@@ -43,7 +41,6 @@ const OtpScreen = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30);
-  const [resendDisabled, setResendDisabled] = useState(true);
   const inputRefs = useRef<Array<TextInput | null>>([]);
   const navigation = useNavigation<OtpScreenNavigationProp>();
   const route = useRoute<OtpScreenRouteProp>();
