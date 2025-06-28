@@ -103,10 +103,6 @@ const CreateAccountScreen: React.FC<CreateAccountScreenProps> = () => {
             isInputActive && styles.inputContainerActive,
           ]}
         >
-          {/* Flag */}
-          {/* If you don't have pk-flag.png, use emoji: <Text style={{fontSize:18}}>🇵🇰</Text> */}
-          {/* <Image source={PAKISTAN_FLAG} style={styles.flag} /> */}
-          {/* <Text style={{ fontSize: 18, marginRight: 8 }}>🇵🇰</Text> */}
           <TextInput
             style={styles.input}
             placeholder="Aapka mobile number"
