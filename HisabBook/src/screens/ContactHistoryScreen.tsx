@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -6,10 +6,8 @@ import {
   TouchableOpacity,
   SafeAreaView,
   FlatList,
-  Image,
-  Modal,
 } from "react-native";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import ContactHeader from "../components/ContactHeader";
 
@@ -236,8 +234,6 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     marginBottom: 18,
     paddingHorizontal: 18,
-    // borderWidth: 1.5,
-    // borderColor: "#E0E0E0",
     shadowColor: "#000",
     shadowOpacity: 0.08,
     shadowRadius: 8,
