@@ -1,28 +1,16 @@
-import {
-  StyleSheet,
-  Text,
-  View,
-  Dimensions,
-  Image,
-  TouchableOpacity,
-  StatusBar,
-} from "react-native";
+import { StyleSheet, Text, View, Image, TouchableOpacity } from "react-native";
 import React, { useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   useAnimatedStyle,
   withTiming,
   useSharedValue,
-  withSequence,
-  withDelay,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
-const { width } = Dimensions.get("window");
-const PROGRESS_BAR_WIDTH = width - 32; // 16px padding on each side
-const PROGRESS_DURATION = 5000; // 3 seconds per story
+const PROGRESS_DURATION = 5000;
 
 type RootStackParamList = {
   Create: undefined;
@@ -167,7 +155,6 @@ const WelcomeScreen: React.FC = () => {
       >
         <View style={styles.bottomContent}>
           <Text style={styles.title}>{currentContent.title}</Text>
-          {/* <Text style={styles.subtitle}>{currentContent.subtitle}</Text> */}
           <TouchableOpacity
             style={[
               styles.button,
